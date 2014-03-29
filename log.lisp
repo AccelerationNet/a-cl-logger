@@ -41,13 +41,36 @@
       (error +error+)
       (fatal +fatal+))))
 
+(defun ensure-level-value (level)
+  (typecase level
+    (null 1)
+    (integer level)
+    (symbol (symbol-value level))))
+
+(define-condition missing-logger (error)
+  ((name :accessor name :initarg :name :initform nil))
+  (:report (lambda (c s)
+             (format s "~&Error: no logger defined named :~S" (name c)))))
+
+(defun missing-logger (name)
+  (error (make-condition 'missing-logger :name name)))
+
 (defun get-logger-var-name (name)
-  (symbol-munger:reintern #?"*${name}*" (symbol-package name)))
+  (typecase name
+    (null nil)
+    (log-category (get-logger-var-name (name name)))
+    (symbol (symbol-munger:reintern #?"*${name}*" (symbol-package name)))))
 
 (defun get-logger (name)
   (typecase name
-    (symbol (symbol-value (get-logger-var-name name)))
+    (null nil)
+    (symbol (handler-case (symbol-value (get-logger-var-name name))
+              (unbound-variable (c) (declare (ignore c)))))
     (log-category name)))
+
+(defun require-logger (name)
+  (or (get-logger name)
+      (missing-logger name)))
 
 (defun (setf get-logger) (new name)
   (setf (symbol-value (get-logger-var-name name))
@@ -62,16 +85,12 @@
     (error "~S is an invalid log level" level))
   (car (aref *log-level-names* level)))
 
-(defgeneric %print-message (log appender message stream)
-  (:method (log appender message stream)
-    (etypecase message
-      (string (write-sequence message stream))
-      (function (%print-message log appender (funcall message) stream))
-      (list (if (stringp (first message))
-                (apply #'format stream message)
-                (apply #'format stream "~{~A ~}" message))))))
-
 ;;;; ** Log Categories
+
+(defclass message ()
+  ((format-control :accessor format-control :initarg :format-control :initform nil)
+   (args :accessor args :initarg :args :initform nil)
+   (args-plist :accessor args-plist :initarg :args-plist :initform nil)))
 
 (defclass log-category ()
   ((ancestors
@@ -102,27 +121,47 @@
 	    (level category))))
 
 (defmethod initialize-instance :after ((l log-category) &key &allow-other-keys)
-  (setf (ancestors l) (mapcar #'get-logger (ensure-list (ancestors l))))
+  (setf (ancestors l) (mapcar #'require-logger (ensure-list (ancestors l))))
   (ensure-list! (appenders l))
   (dolist (anc (ancestors l))
-    (pushnew l (children anc) :key #'name)))
+    (pushnew l (children anc) :key #'name))
+  (unless (appenders l)
+    (setup-logger l)))
 
-(defun %make-log-helper (name suffix level)
+(defun make-message (args arg-names)
+  (lambda (&aux (mc (first args)))
+    (make-instance
+     'message
+     :format-control (and (stringp mc) mc)
+     :args (if (stringp mc) (rest args) args)
+     :args-plist (iter
+                   (for n in arg-names)
+                   (for v in args)
+                   (appending `(',n ,v) )))))
+
+(defmacro log.level-helper (logger level-name message-args
+                            &aux
+                            (logger-var (get-logger-var-name logger))
+                            (mform `(make-message (list ,@message-args)
+                                     '(,@message-args))))
+  (when (compile-time-enabled-p logger level-name)
+    (with-spliced-unique-name (args)
+      (splice-in-local-symbol-values
+       (list 'logger logger-var 'level level-name
+             'message-args mform)     
+       '(when (enabled-p logger level)
+         (handle logger message-args level))))))
+
+(defun %make-log-helper (name level-name)
   "Creates macros like logger.debug to facilitate logging"
   (let* ((logger-macro-name
            (symbol-munger:reintern
-            #?"${name}.${suffix}"
-            (symbol-package name)))
-         (logger (get-logger-var-name name)))
-    ;; instead of nested quasi-quoting which I cant seem to get correct
-    ;; lets replace the symbols with their values directly    
+            #?"${name}.${ (without-earmuffs level-name) }"
+            (symbol-package name))))
     (splice-in-local-symbol-values
-     (list 'logger logger 'level level)
-     `(defmacro ,logger-macro-name (message-control &rest message-args)
-       (when (compile-time-enabled-p logger level)
-         `(let ((args (list ,message-control ,@message-args)))
-           (when (enabled-p logger level)
-             (handle logger args level))))))))
+     (list 'name name 'level level-name)
+     `(defmacro ,logger-macro-name (&rest message-args)
+       `(log.level-helper name level ,message-args)))))
 
 (defmacro deflogger
     (name ancestors &key compile-time-level level appenders documentation)
@@ -137,18 +176,17 @@
                      :appenders ,appenders
                      :ancestors ,ancestors))
     ,@(iter (for (level-name level-value-name) in-vector *log-level-names*)
-        (collect (%make-log-helper name level-name level-value-name)))
+        (collect (%make-log-helper name level-value-name)))
     ,(get-logger-var-name name)))
 
 ;;; Runtime levels
 (defgeneric enabled-p (log level)
   (:method ((cat log-category) level)
-    (>= level (log.level cat))))
+    (>= level (ensure-level-value (log.level cat)))))
 
 (defgeneric log.level (log)
-  (:method ((cat-name symbol))
-    (log.level (get-logger cat-name))) 
-  (:method ((cat log-category))
+  (:method ( cat )
+    (require-logger! cat)
     (or (level cat)
         (if (ancestors cat)
             (loop for ancestor in (ancestors cat)
@@ -156,10 +194,12 @@
             (error "Can't determine level for ~S" cat)))))
 
 (defgeneric (setf log.level) (new log &optional recursive)
-  (:method (new-level log &optional (recursive t))
-    "Change the log level of CAT to NEW-LEVEL. If RECUSIVE is T the
-  setting is also applied to the sub categories of CAT."
-    (setf log (get-logger log))
+  (:documentation
+   "Change the log level of CAT to NEW-LEVEL. If RECUSIVE is T the
+  setting is also applied to the sub categories of CAT.")
+  (:method (new-level log &optional (recursive t))  
+    (require-logger! log)
+    (ensure-level-value! new-level)
     (setf (slot-value log 'level) new-level)
     (when recursive
       (dolist (child (children log))
@@ -178,12 +218,13 @@
 ;;; Compile time levels
 (defgeneric compile-time-enabled-p (log level)
   (:method (log level)
-    (get-logger! log)
-    (>= level (or (log.compile-time-level log) +dribble+))))
+    (require-logger! log)
+    (>= (ensure-level-value level)
+        (or (ensure-level-value (log.compile-time-level log)) +dribble+))))
 
 (defgeneric log.compile-time-level (log)
   (:method ( log )
-    (get-logger! log)
+    (require-logger! log)
     (or (compile-time-level log)
         (loop for ancestor in (ancestors log)
               minimize (log.compile-time-level ancestor))
@@ -211,7 +252,7 @@
     ;; turn off line wrapping for the entire time while inside the loggers
     (with-logging-io () (call-next-method)))
   (:method ( log message level)
-    (get-logger! log)
+    (require-logger! log)
     (labels ((do-appenders (ac)
                ;; if we have any appenders send them the message
                (dolist (appender (appenders ac))
@@ -220,78 +261,6 @@
                ;; send the message to our ancestors	     
                (mapc #'do-appenders (ancestors ac))))
       (do-appenders log))))
-
-
-(defgeneric append-message (category log-appender message level)
-  (:method :around (category log-appender message level)
-    (handler-bind
-        ((error (lambda (c)  
-                  (if *debugger-hook*
-                      (invoke-debugger c)
-                      (format *error-output* "ERROR Appending Message: ~A" c))
-                  (return-from append-message))))
-      (call-next-method))))
-
-;;;; *** Stream log appender
-
-(defclass appender () ())
-
-(defclass stream-log-appender (appender)
-  ((stream :initarg :stream :accessor log-stream)
-   (date-format :initarg :date-format :initform :iso
-    :documentation "Format to print dates. Format can be one of: (:iso :stamp :time)"))
-  (:documentation "Human readable to the console logger."))
-
-(defmacro with-stream-restarts ((s recall) &body body)
-  `(restart-case
-    (progn ,@body)
-    (use-*debug-io* ()
-     :report "Use the current value of *debug-io*"
-     (setf (log-stream ,s) *debug-io*)
-     ,recall)
-    (use-*standard-output* ()
-     :report "Use the current value of *standard-output*"
-     (setf (log-stream ,s) *standard-output*)
-     ,recall)
-    (silence-logger ()
-     :report "Ignore all future messages to this logger."
-     (setf (log-stream ,s) (make-broadcast-stream)))))
-
-(defmethod append-message ((category log-category)
-                           (s stream-log-appender)
-                           message level)
-  (with-stream-restarts (s (append-message category s message level))
-    (maybe-with-presentations ((log-stream s) str)
-      (let* ((category-name (symbol-name (name category)))
-             (level-name (typecase level
-                           (symbol level)
-                           (integer (log-level-name-of level)))))
-        (multiple-value-bind (second minute hour day month year)
-            (decode-universal-time (get-universal-time))
-          (ecase (slot-value s 'date-format)
-            (:iso (format str "~d-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
-                          year month day hour minute second))
-            (:stamp (format str "~d~2,'0D~2,'0D ~2,'0D~2,'0D~2,'0D"
-                            year month day hour minute second))
-            (:time (format str "~2,'0D:~2,'0D:~2,'0D"
-                           hour minute second))))
-        (princ #\space str)
-        (format str "~A/~7A "
-                (%category-name-for-output category-name)
-                level-name)
-        (apply #'format str (ensure-list message))
-        (terpri str)
-        ))))
-
-(defun make-stream-log-appender (&rest args &key (stream *debug-io*) &allow-other-keys)
-  (apply #'make-instance 'stream-log-appender :stream stream args))
-
-(defun logger-inspector-lookup-hook (form)
-  (when (symbolp form)
-    (let ((logger (or (ignore-errors (get-logger form))
-                      (ignore-errors (get-logger (logger-name-from-helper form))))))
-      (when logger
-        (values logger t)))))
 
 (defun logger-name-from-helper (name)
   (first (split-dot-sym name)))
@@ -322,41 +291,7 @@
              (handle logger (list* message args) level-sym))
            (values)))))))
 
-(defclass file-log-appender (stream-log-appender)
-  ((log-file :initarg :log-file :accessor log-file
-             :documentation "Name of the file to write log messages to.")
-   (buffer-p :initarg :buffer-p :accessor buffer-p :initform t))
-  (:default-initargs :date-format :iso))
-
-(defun %open-log-file (ufla)
-  (setf (log-stream ufla)
-        (ignore-errors
-          (let ((f (open (log-file ufla) :if-exists :append :if-does-not-exist :create
-                         :direction :output
-                         :external-format :utf-8)))
-            (push (lambda () (force-output f) (close f)) sb-ext::*exit-hooks*)
-            f))))
-
-(defmethod (setf log-file) :after (val (ufla file-log-appender))
-  (%open-log-file ufla))
-
-(defmethod append-message ((category log-category)
-                           (appender file-log-appender)
-                           message level)
-  (unless (and (slot-boundp appender 'stream)
-               (log-stream appender))
-    (%open-log-file appender))
-
-  (restart-case (handler-case
-                    (progn (call-next-method)
-                           (unless (buffer-p appender)
-                             (force-output (log-stream appender))))
-                  (error () (invoke-restart 'open-log-file)))
-    (open-log-file ()
-      (%open-log-file appender)
-      (ignore-errors (call-next-method)))))
-
-(defun setup-logger (logger level &optional file-name log-root (buffer-p t))
+(defun setup-logger (logger &key level file-name log-root (buffer-p t))
   "Reconfigures a logger such that it matches the setup specified
 
    This is sometimes necessary if your streams get messed up (eg: slime
@@ -364,7 +299,8 @@
 
    Always ensure there is a *error-output* stream logger
    and if a file-name is passed in a file-logger going to it"
-  (get-logger! logger)
+  (require-logger! logger)
+  (unless level (setf level (level logger)))
   (setf (appenders logger) nil)
   (unless (find "--quiet" sb-ext:*posix-argv* :test #'equal)
     (push (make-instance 'stream-log-appender :stream *error-output*)

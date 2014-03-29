@@ -12,8 +12,23 @@
          (symbol
           (or (iter (for (k v) on plist by #'cddr)
                 (if (eql head k) (return v)))
-              head)))
+              head))
+         (t head))
        (splice-in-local-symbol-values plist (rest forms))))))
+
+(defmacro with-spliced-unique-name ((&rest names) &body body)
+  `(alexandria:with-unique-names (,@names)
+    (splice-in-local-symbol-values
+     (list ,@(iter (for n in names) (appending `(',n ,n))))
+     ,@body)))
+
+(defun without-earmuffs (symbol)
+  (check-type symbol symbol)
+  (let* ((n (symbol-name symbol))
+         (l (length n)))
+    (symbol-munger:reintern
+     (subseq n 1 (- l 1))
+     (symbol-package symbol))))
 
 (defmacro define-mutator-macro (%name)
   "defines mutator macros for a function name
@@ -67,7 +82,7 @@ done."
       (fresh-line ,os-name)
       (write-sequence ,msg-name ,os-name))))
 
-(define-mutator-macros ensure-list get-logger)
+(define-mutator-macros ensure-list get-logger require-logger ensure-level-value)
 
 (defmacro with-logger-level (logger-name new-level &body body)
   "Set the level of the listed logger(s) to NEW-LEVEL and restore the original value in an unwind-protect."
