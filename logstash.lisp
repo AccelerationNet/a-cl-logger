@@ -33,13 +33,13 @@
                            (appender node-logstash-appender)
                            message)
   (let ((out (with-output-to-string (json)
-               (%print-message log appender message json))))
+               (print-message log appender message json))))
     (format t "~%SENDING ZMQ MSQ: ~A~%" out)
     (zeromq-send-data out :server (log-stash-server appender))
     ))
 
 
-(defmethod %print-message (log
+(defmethod print-message (log
                            (appender node-logstash-appender)
                            (message message)
                            stream)

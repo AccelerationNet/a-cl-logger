@@ -10,15 +10,17 @@
     (maybe-signal-appending-message
      logger log-appender message)))
 
-(defgeneric %print-message (log appender message stream)
-  (:method (log (appender appender) message stream)
+(defgeneric print-message (log appender message stream)
+  (:method ((log logger) (appender appender) message stream)
     (etypecase message
       (message
-          (format stream "~7A " (log-level-name-of message))
+          (format stream "~A ~7A "
+                  (%logger-name-for-output log)
+                  (log-level-name-of message))
         (if (format-control message)
             (apply #'format stream (format-control message) (args message))
             (format stream "~{~A:~A~^, ~}" (args message))))
-      (function (%print-message log appender (funcall message) stream)))))
+      (function (print-message log appender (funcall message) stream)))))
 
 (defclass appender ()
   ()
@@ -54,8 +56,7 @@
              (format (slot-value s 'date-format)))
         (format-time :stream str :format format)
         (princ #\space str)
-        (format str "~A " (%logger-name-for-output logger-name))
-        (%print-message logger s message str)
+        (print-message logger s message str)
         (terpri str)
         ))))
 
