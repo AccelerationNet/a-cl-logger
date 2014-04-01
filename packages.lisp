@@ -8,6 +8,8 @@
            #:*log-level-names*
 
            #:do-logging
+           #:print-message
+           #:append-message
            
            #:define-logger
            #:logger
@@ -35,8 +37,7 @@
            #:require-logger
            #:require-logger!
 
-           #:print-message
-           
+           #:with-appender
            
            ))
 
