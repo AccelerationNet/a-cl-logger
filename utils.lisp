@@ -109,3 +109,23 @@ done."
          (*package* #+ecl (find-package "COMMON-LISP")
                     #-ecl #.(find-package "COMMON-LISP")))
     ,@body))
+
+(defun format-time (&key stream (time (get-universal-time))
+                    (format :iso))  
+  (case format
+    (:iso (format stream "~A" (local-time:now)))
+    (t
+     (multiple-value-bind (second minute hour day month year)
+         (decode-universal-time time)
+       (ecase format
+         (:stamp (format stream "~d~2,'0D~2,'0D ~2,'0D~2,'0D~2,'0D"
+                         year month day hour minute second))
+         (:time (format stream "~2,'0D:~2,'0D:~2,'0D"
+                        hour minute second)))))))
+
+(defun as-json-o-val (k v)
+  (json:encode-object-member
+   (typecase k
+     ((or symbol string) k)
+     (t (princ-to-string k)))
+   (princ-to-string v)))

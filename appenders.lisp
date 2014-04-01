@@ -15,14 +15,14 @@
                   (return-from append-message))))
       (call-next-method))))
 
-(defgeneric %print-message (log appender message stream)
-  (:method (log appender message stream)
+(defgeneric %print-message (log appender message level stream)
+  (:method (log appender message level stream)
     (etypecase message
       (message
           (if (format-control message)
               (apply #'format stream (format-control message) (args message))
-              (format stream "~{~A:~A~^, ~}" (args-plist message))))
-      (function (%print-message log appender (funcall message) stream))
+              (format stream "~{~A:~A~^, ~}" (args message))))
+      (function (%print-message log appender (funcall message) level stream))
       (string (write-sequence message stream))
       (list (if (stringp (first message))
                 (apply #'format stream message)
@@ -61,21 +61,14 @@
       (let* ((category-name (symbol-name (name category)))
              (level-name (typecase level
                            (symbol level)
-                           (integer (log-level-name-of level)))))
-        (multiple-value-bind (second minute hour day month year)
-            (decode-universal-time (get-universal-time))
-          (ecase (slot-value s 'date-format)
-            (:iso (format str "~d-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
-                          year month day hour minute second))
-            (:stamp (format str "~d~2,'0D~2,'0D ~2,'0D~2,'0D~2,'0D"
-                            year month day hour minute second))
-            (:time (format str "~2,'0D:~2,'0D:~2,'0D"
-                           hour minute second))))
+                           (integer (log-level-name-of level))))
+             (format (slot-value s 'date-format)))
+        (format-time :stream str :format format)
         (princ #\space str)
         (format str "~A/~7A "
                 (%category-name-for-output category-name)
                 level-name)
-        (%print-message category s message str)
+        (%print-message category s message level-name str)
         (terpri str)
         ))))
 

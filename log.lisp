@@ -134,10 +134,13 @@
      'message
      :format-control (and (stringp mc) mc)
      :args (if (stringp mc) (rest args) args)
-     :args-plist (iter
-                   (for n in arg-names)
-                   (for v in args)
-                   (appending `(',n ,v) )))))
+     :args-plist
+     (iter
+       (for n in arg-names)
+       (for v in args)
+       (when (and (first-iteration-p) (stringp mc))
+         (next-iteration))
+       (appending `(,n ,v))))))
 
 (defmacro log.level-helper (logger level-name message-args
                             &aux
@@ -208,6 +211,8 @@
 
 (defun %category-name-for-output (name &key (width *max-category-name-length*))
   "Output the category name such that it takes exactly :width characters
+   and displays the right most :width characters if name is too long
+
    this simplifies our formatting"
   (let* ((len (length name))
          (out (make-string width :initial-element #\space)))
@@ -253,13 +258,23 @@
     (with-logging-io () (call-next-method)))
   (:method ( log message level)
     (require-logger! log)
-    (labels ((do-appenders (ac)
-               ;; if we have any appenders send them the message
-               (dolist (appender (appenders ac))
-                 (append-message log appender message level))
+    (labels
+        ((do-appenders (ac)
+           ;; if we have any appenders send them the message
+           (dolist (appender (appenders ac))
+             (with-simple-restart (continue "Run the next log-appender")
+               (handler-bind
+                   ((error (lambda (c)
+                             (ignore-errors
+                              (format *error-output* "Error in log appender ~A:~%~A~%~S"
+                                      appender c c))
+                             (when *debugger-hook*
+                               (invoke-debugger c))
+                             (continue c))))
+                 (append-message log appender message level))))
 
-               ;; send the message to our ancestors	     
-               (mapc #'do-appenders (ancestors ac))))
+           ;; send the message to our ancestors	     
+           (mapc #'do-appenders (ancestors ac))))
       (do-appenders log))))
 
 (defun logger-name-from-helper (name)
