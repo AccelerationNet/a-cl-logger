@@ -11,12 +11,10 @@
   ((log-stash-type :accessor log-stash-type :initarg :log-stash-type :initform nil)
    (log-stash-server
     :accessor log-stash-server :initarg :log-stash-server
-    :initform "tcp://logstash.acceleration.net:5556")))
+    :initform nil)))
 
 (defun zeromq-send-data (json &key server &aux connected)
   "Push a message to the logstash zmq"
-  (setf server (or
-                server "tcp://logstash.acceleration.net:5556"))
   (zmq:with-context (ctx 1)
     (zmq:with-socket (socket ctx :push)      
       (unwind-protect
