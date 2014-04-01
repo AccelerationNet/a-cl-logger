@@ -6,17 +6,12 @@
 (defgeneric append-message (logger log-appender message)
   (:documentation
    "The method responsible for actually putting the logged information somewhere")
-  (:method :around (logger log-appender message)
-    (handler-bind
-        ((error (lambda (c)  
-                  (if *debugger-hook*
-                      (invoke-debugger c)
-                      (format *error-output* "ERROR Appending Message: ~A" c))
-                  (return-from append-message))))
-      (call-next-method))))
+  (:method :before (logger log-appender message)
+    (maybe-signal-appending-message
+     logger log-appender message)))
 
 (defgeneric %print-message (log appender message stream)
-  (:method (log appender message stream)
+  (:method (log (appender appender) message stream)
     (etypecase message
       (message
           (format stream "~7A " (log-level-name-of message))

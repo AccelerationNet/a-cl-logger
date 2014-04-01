@@ -29,6 +29,12 @@
 
            #:get-log-fn
            #:setup-logger
+
+           #:get-logger
+           #:get-logger!
+           #:require-logger
+           #:require-logger!
+           
            
            ))
 

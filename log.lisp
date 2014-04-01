@@ -88,16 +88,20 @@
    (logger :accessor logger :initarg :logger :initform nil)
    (appender :accessor appender :initarg :appender :initform nil)))
 
-(defun signal-appending-message (logger appender message)
-  (signal (make-condition 'appending-message
-                          :logger logger :message message :appender appender)))
+(defun maybe-signal-appending-message (logger appender message)
+  (when (signal-messages logger)
+    (signal (make-condition 'appending-message
+                            :logger logger :message message :appender appender)))
+  message )
 
 (defclass message ()
   ((logger :accessor logger :initarg :logger :initform nil)
    (level :accessor level :initarg :level :initform nil)
    (format-control :accessor format-control :initarg :format-control :initform nil)
    (args :accessor args :initarg :args :initform nil)
-   (arg-literals :accessor arg-literals :initarg :arg-literals :initform nil)))
+   (arg-literals :accessor arg-literals :initarg :arg-literals :initform nil)
+   (timestamp :accessor timestamp :initarg :timestamp
+              :initform (local-time:now))))
 
 (defclass logger ()
   ((name :initarg :name :accessor name :initform nil)
@@ -139,23 +143,21 @@
 (defun make-message (logger level args
                      &key arg-literals
                      &aux
-                     (singleton (only-one? args)))
+                     (singleton (only-one? args))
+                     format-control?)
   (typecase singleton
     ((or message function) singleton)
-    (string (make-instance
-             'message
-             :logger logger
-             :level level :format-control singleton))
     (t
-     (lambda (&aux (mc (first args)))
-       (maybe-signal-generating-message
-        (make-instance
-         'message
-         :logger logger
-         :level level
-         :format-control (and (stringp mc) mc)
-         :args (if (stringp mc) (rest args) args)
-         :arg-literals arg-literals))))))
+     (ensure-list! args)
+     (setf format-control? (first args))
+     (maybe-signal-generating-message
+      (make-instance
+       'message
+       :logger logger
+       :level level
+       :format-control (and (stringp format-control?) format-control?)
+       :args (if (stringp format-control?) (rest args) args)
+       :arg-literals arg-literals)))))
 
 (defmacro log.level-helper (logger level-name message-args
                             &aux

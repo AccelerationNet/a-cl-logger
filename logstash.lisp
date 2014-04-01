@@ -53,7 +53,7 @@
       (json:encode-object-member :file nil)
       (json:encode-object-member :level (log-level-name-of message))
       (json:encode-object-member :hostname #+sbcl (sb-unix:unix-gethostname))
-      (json:encode-object-member :@timestamp (format-time :format :iso))
+      (json:encode-object-member :@timestamp (princ-to-string (timestamp message)))
       (cond
         ((format-control message)
          (json:encode-object-member
