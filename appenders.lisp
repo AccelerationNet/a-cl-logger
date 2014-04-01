@@ -3,10 +3,10 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
-(defgeneric append-message (category log-appender message level)
+(defgeneric append-message (logger log-appender message)
   (:documentation
    "The method responsible for actually putting the logged information somewhere")
-  (:method :around (category log-appender message level)
+  (:method :around (logger log-appender message)
     (handler-bind
         ((error (lambda (c)  
                   (if *debugger-hook*
@@ -15,18 +15,15 @@
                   (return-from append-message))))
       (call-next-method))))
 
-(defgeneric %print-message (log appender message level stream)
-  (:method (log appender message level stream)
+(defgeneric %print-message (log appender message stream)
+  (:method (log appender message stream)
     (etypecase message
       (message
-          (if (format-control message)
-              (apply #'format stream (format-control message) (args message))
-              (format stream "~{~A:~A~^, ~}" (args message))))
-      (function (%print-message log appender (funcall message) level stream))
-      (string (write-sequence message stream))
-      (list (if (stringp (first message))
-                (apply #'format stream message)
-                (apply #'format stream "~{~A ~}" message))))))
+          (format stream "~7A " (log-level-name-of message))
+        (if (format-control message)
+            (apply #'format stream (format-control message) (args message))
+            (format stream "~{~A:~A~^, ~}" (args message))))
+      (function (%print-message log appender (funcall message) stream)))))
 
 (defclass appender ()
   ()
@@ -53,22 +50,17 @@
      :report "Ignore all future messages to this logger."
      (setf (log-stream ,s) (make-broadcast-stream)))))
 
-(defmethod append-message ((category log-category)
+(defmethod append-message ((logger logger)
                            (s stream-log-appender)
-                           message level)
-  (with-stream-restarts (s (append-message category s message level))
+                           message)
+  (with-stream-restarts (s (append-message logger s message))
     (maybe-with-presentations ((log-stream s) str)
-      (let* ((category-name (symbol-name (name category)))
-             (level-name (typecase level
-                           (symbol level)
-                           (integer (log-level-name-of level))))
+      (let* ((logger-name (symbol-name (name logger)))
              (format (slot-value s 'date-format)))
         (format-time :stream str :format format)
         (princ #\space str)
-        (format str "~A/~7A "
-                (%category-name-for-output category-name)
-                level-name)
-        (%print-message category s message level-name str)
+        (format str "~A " (%logger-name-for-output logger-name))
+        (%print-message logger s message str)
         (terpri str)
         ))))
 
@@ -97,9 +89,9 @@
 (defmethod (setf log-file) :after (val (ufla file-log-appender))
   (%open-log-file ufla))
 
-(defmethod append-message ((category log-category)
+(defmethod append-message ((logger logger)
                            (appender file-log-appender)
-                           message level)
+                           message)
   (unless (and (slot-boundp appender 'stream)
                (log-stream appender))
     (%open-log-file appender))

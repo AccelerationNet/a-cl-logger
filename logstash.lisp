@@ -31,29 +31,29 @@
           ;; (zmq:disconnect socket server)
           )))))
 
-(defmethod append-message ((log log-category)
-                           (appender logstash-appender)
-                           message level)
+(defmethod append-message ((log logger)
+                           (appender node-logstash-appender)
+                           message)
   (let ((out (with-output-to-string (json)
-               (%print-message log appender message level json))))
+               (%print-message log appender message json))))
     (format t "~%SENDING ZMQ MSQ: ~A~%" out)
     (zeromq-send-data out :server (log-stash-server appender))
     ))
 
 
 (defmethod %print-message (log
-                           (appender logstash-appender)
+                           (appender node-logstash-appender)
                            (message message)
-                           level stream)
+                           stream)
   (let ((json::*json-output* stream))
     (json:with-object ()
       (json:encode-object-member :type (or
                                         (log-stash-type appender)
                                         (name log)))
       (json:encode-object-member
-       :tags (list* (name log) (mapcar #'name (ancestors log))))
+       :tags (list* (name log) (mapcar #'name (parents log))))
       (json:encode-object-member :file nil)
-      (json:encode-object-member :level (log-level-name-of level))
+      (json:encode-object-member :level (log-level-name-of message))
       (json:encode-object-member :hostname #+sbcl (sb-unix:unix-gethostname))
       (json:encode-object-member :@timestamp (format-time :format :iso))
       (cond
@@ -63,7 +63,9 @@
           (apply #'format nil
                  (format-control message)
                  (args message)))
-         (iter (for (k v) on (args-plist message) by #'cddr)
+         (iter
+           (for k in (arg-literals message))
+           (for v in (args message))
            (as-json-o-val k v)))
         (:plist-values
          (iter (for (k v) on (args message) by #'cddr)

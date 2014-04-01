@@ -6,9 +6,29 @@
   (:import-from #:alexandria #:ensure-list )
   (:export #:+dribble+ #:+debug+ #:+info+ #:+warn+ #:+error+ #:+fatal+
            #:*log-level-names*
-           #:deflogger
-           #:log-category
+
+           #:do-logging
+           
+           #:define-logger
+           #:logger
+           #:name
            #:appenders
+           #:parents
            #:level
-           #:children))
+           #:children
+           
+           #:appender
+           #:stream-appender
+           #:file-appender
+           #:node-logstash-appender
+
+           #:message
+           #:args
+           #:format-control
+           #:args-plist
+
+           #:get-log-fn
+           #:setup-logger
+           
+           ))
 

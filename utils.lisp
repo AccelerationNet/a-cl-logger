@@ -129,3 +129,26 @@ done."
      ((or symbol string) k)
      (t (princ-to-string k)))
    (princ-to-string v)))
+
+(defun only-one? (thing)
+  (typecase thing
+    (atom thing)
+    (list (if (= 1 (length thing))
+              (first thing)
+              nil))))
+
+(defmacro with-debugging-or-error-printing
+    ((logger
+      &key (continue "Run the next one"))
+     &body body)
+  `(with-simple-restart (continue ,continue)
+    (handler-bind
+        ((error (lambda (c)
+                  (ignore-errors
+                   (format *error-output* "Error in logger ~A:~%~A~%~S"
+                           ,logger c c))
+                  (when *debugger-hook*
+                    (invoke-debugger c))
+                  (continue c)))))
+    ,@body
+    ))
