@@ -38,6 +38,7 @@
            #:require-logger!
 
            #:with-appender
+           #:log-around
            
            ))
 
