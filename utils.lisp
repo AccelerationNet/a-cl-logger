@@ -53,10 +53,6 @@
     ,@(iter (for n in names)
         (collect `(define-mutator-macro ,n)))))
 
-(defun split-dot-sym (sym)
-  (iter (for piece in (cl-ppcre:split "\\." (string sym)))
-    (collect (symbol-munger:reintern piece (or (symbol-package sym) *package*)))))
-
 (defmacro maybe-with-presentations
     ((output-stream var &rest stream-properties) &body body)
   "Buffer the output to var, printing as if to a swank dedicated

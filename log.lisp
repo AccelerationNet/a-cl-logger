@@ -20,12 +20,6 @@
       (error +error+)
       (fatal +fatal+))))
 
-(defun ensure-level-value (level)
-  (typecase level
-    (null 1)
-    (integer level)
-    (symbol (symbol-value level))))
-
 (define-condition missing-logger (error)
   ((name :accessor name :initarg :name :initform nil))
   (:report (lambda (c s)
@@ -46,9 +40,9 @@
     (symbol
      (or (handler-case (symbol-value (get-logger-var-name name))
            (unbound-variable (c) (declare (ignore c))))
-         (let* ((parts (split-dot-sym name))
-                (name (first parts)))
-           (get-logger name))))
+         (destructuring-bind (name &optional level)
+             (split-log-helper name)
+           (when level (get-logger name)))))
     (logger name)))
 
 (defun require-logger (name)
@@ -62,16 +56,6 @@
 (defun rem-logger (name)
   (setf (symbol-value (get-logger-var-name name)) nil))
 
-
-(defun log-level-name-of (level)
-  (etypecase level
-    (null nil)
-    (message (log-level-name-of (level level)))
-    ((or symbol string) level)
-    (integer
-     (when (not (< -1 level (length *log-level-names*)))
-       (error "~S is an invalid log level" level))
-     (car (aref *log-level-names* level)))))
 
 ;;;; ** Loggers
 
@@ -123,6 +107,37 @@
     :initform nil :initarg :compile-time-level :accessor compile-time-level
     :type (or null integer)
     :documentation "This loggers's compile time level. Any log expression below this level will macro-expand to NIL.")))
+
+(defun split-log-helper (sym)
+  (destructuring-bind (name &optional level)
+      ;; a dot followed by lookahead: no more dots till the end of the string
+      (cl-ppcre:split #?r"\.(?=[^\.]+$)" (string sym))
+    (list (symbol-munger:reintern name (or (symbol-package sym) *package*))
+          (log-level-name-of level))))
+
+(defun ensure-level-value (level)
+  (typecase level
+    (null 1)
+    (integer level)
+    (symbol (symbol-value level))))
+
+(defun log-level-name-of (level)
+  (etypecase level
+    (null nil)
+    (message (log-level-name-of (level level)))
+    ((or symbol string)
+     (let* ((ln (string level))
+            (proper-name
+              (first
+               (find ln *log-level-names*
+                     :key (lambda (x &aux (n (first x)))
+                            (when n (string n)))
+                     :test #'string-equal))))
+       proper-name))
+    (integer
+     (when (not (< -1 level (length *log-level-names*)))
+       (error "~S is an invalid log level" level))
+     (car (aref *log-level-names* level)))))
 
 (defmethod print-object ((log logger) stream)
   (print-unreadable-object (log stream :type t :identity t)

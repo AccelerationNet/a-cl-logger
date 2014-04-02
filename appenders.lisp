@@ -3,6 +3,22 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
+(defclass appender ()
+  ()
+  (:documentation "The base of all log appenders (destinations)"))
+
+(defclass stream-log-appender (appender)
+  ((stream :initarg :stream :accessor log-stream)
+   (date-format :initarg :date-format :initform :time
+    :documentation "Format to print dates. Format can be one of: (:iso :stamp :time)"))
+  (:documentation "Human readable to the console logger."))
+
+(defclass file-log-appender (stream-log-appender)
+  ((log-file :initarg :log-file :accessor log-file
+             :documentation "Name of the file to write log messages to.")
+   (buffer-p :initarg :buffer-p :accessor buffer-p :initform t))
+  (:default-initargs :date-format :iso))
+
 (defgeneric append-message (logger log-appender message)
   (:documentation
    "The method responsible for actually putting the logged information somewhere")
@@ -21,16 +37,6 @@
             (apply #'format stream (format-control message) (args message))
             (format stream "~{~A:~A~^, ~}" (args message))))
       (function (print-message log appender (funcall message) stream)))))
-
-(defclass appender ()
-  ()
-  (:documentation "The base of all log appenders (destinations)"))
-
-(defclass stream-log-appender (appender)
-  ((stream :initarg :stream :accessor log-stream)
-   (date-format :initarg :date-format :initform :time
-    :documentation "Format to print dates. Format can be one of: (:iso :stamp :time)"))
-  (:documentation "Human readable to the console logger."))
 
 (defmacro with-stream-restarts ((s recall) &body body)
   `(restart-case
@@ -66,12 +72,6 @@
                       (ignore-errors (get-logger (logger-name-from-helper form))))))
       (when logger
         (values logger t)))))
-
-(defclass file-log-appender (stream-log-appender)
-  ((log-file :initarg :log-file :accessor log-file
-             :documentation "Name of the file to write log messages to.")
-   (buffer-p :initarg :buffer-p :accessor buffer-p :initform t))
-  (:default-initargs :date-format :iso))
 
 (defun %open-log-file (ufla)
   (setf (log-stream ufla)
