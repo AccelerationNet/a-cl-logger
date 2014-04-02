@@ -13,12 +13,12 @@
   (defparameter *max-logger-name-length* 12)
 
   (defparameter *log-level-names*
-    #((dribble +dribble+)
-      (debug +debug+)
-      (info +info+)
-      (warn +warn+)
-      (error +error+)
-      (fatal +fatal+))))
+    #((dribble +dribble+ 0)
+      (debug +debug+ 1)
+      (info +info+ 2)
+      (warn +warn+ 3)
+      (error +error+ 4)
+      (fatal +fatal+ 5))))
 
 (define-condition missing-logger (error)
   ((name :accessor name :initarg :name :initform nil))
@@ -82,7 +82,8 @@
   ((logger :accessor logger :initarg :logger :initform nil)
    (level :accessor level :initarg :level :initform nil)
    (format-control :accessor format-control :initarg :format-control :initform nil)
-   (args :accessor args :initarg :args :initform nil)
+   (format-args :accessor format-args :initarg :format-args :initform nil)
+   (data-plist :accessor data-plist :initarg :data-plist :initform nil)
    (arg-literals :accessor arg-literals :initarg :arg-literals :initform nil)
    (timestamp :accessor timestamp :initarg :timestamp
               :initform (local-time:now))))
@@ -119,21 +120,24 @@
   (typecase level
     (null 1)
     (integer level)
-    (symbol (symbol-value level))))
+    ((or message logger) (ensure-level-value (level level)))
+    (symbol
+     (third (log-level-name-of level :raw? t )))))
 
-(defun log-level-name-of (level)
+(defun log-level-name-of (level &key raw?)
   (etypecase level
     (null nil)
     (message (log-level-name-of (level level)))
     ((or symbol string)
      (let* ((ln (string level))
-            (proper-name
-              (first
-               (find ln *log-level-names*
-                     :key (lambda (x &aux (n (first x)))
-                            (when n (string n)))
-                     :test #'string-equal))))
-       proper-name))
+            (proper-names
+              (find ln *log-level-names*
+                    :test (lambda (x y)
+                            (or (string-equal (string x) (string (first y)))
+                                (string-equal (string x) (string (second y))))))))
+       (if raw?
+           proper-names
+           (first proper-names))))
     (integer
      (when (not (< -1 level (length *log-level-names*)))
        (error "~S is an invalid log level" level))
@@ -156,7 +160,7 @@
     (setup-logger log)))
 
 (defun make-message (logger level args
-                     &key arg-literals
+                     &key arg-literals data-plist
                      &aux
                      (singleton (only-one? args))
                      format-control?)
@@ -171,13 +175,20 @@
        :logger logger
        :level level
        :format-control (and (stringp format-control?) format-control?)
-       :args (if (stringp format-control?) (rest args) args)
+       :format-args (when (stringp format-control?)
+                      (rest args))
+       :data-plist  (append
+                     (unless (stringp format-control?)
+                       args)
+                     data-plist)
        :arg-literals arg-literals)))))
 
 (defmacro log.level-helper (logger level-name message-args
                             &aux
                             (logger-var (get-logger-var-name logger))
-                            (mform `(make-message ,logger-var (list ,@message-args)
+                            (mform `(make-message ,logger-var
+                                     ,level-name
+                                     (list ,@message-args)
                                      :arg-literals '(,@message-args))))
   (when (compile-time-enabled-p logger level-name)
     (with-spliced-unique-name (args)
@@ -217,7 +228,8 @@
 ;;; Runtime levels
 (defgeneric enabled-p (log level)
   (:method ((l logger) level)
-    (>= level (ensure-level-value (log.level l)))))
+    (>= (ensure-level-value level)
+        (ensure-level-value (log.level l)))))
 
 (defgeneric log.level (log)
   (:method ( log )
@@ -241,12 +253,17 @@
         (setf (log.level child) new-level)))
     new-level))
 
-(defun %logger-name-for-output (name &key (width *max-logger-name-length*))
+(defun %logger-name-for-output (log &key (width *max-logger-name-length*))
   "Output the logger name such that it takes exactly :width characters
    and displays the right most :width characters if name is too long
 
    this simplifies our formatting"
-  (let* ((len (length name))
+  (let* ((name (string
+                (etypecase log
+                  ((or symbol string) log)
+                  (logger (name log))
+                  (message (name (logger log))))))
+         (len (length name))
          (out (make-string width :initial-element #\space)))
     (replace out name
              :start1 (max 0 (- width len))
@@ -294,8 +311,12 @@
     (declare (ignore logger message))
     ;; turn off line wrapping for the entire time while inside the loggers
     (with-logging-io () (call-next-method)))
-  (:method ( log message)
+  (:method ( log message )
     (require-logger! log)
+    ;; this is probably a duplicate check, because our helper macros check
+    ;; before evaluating the message args, but good to be sure, so that
+    ;; extensions and calls to do-logging behave as expected
+    (unless (enabled-p log message) (return-from do-logging))
     ;; if we have any appenders send them the message
     (dolist (appender (appenders log))
       (with-debugging-or-error-printing
@@ -304,7 +325,8 @@
     (dolist (parent (parents log))
       (with-debugging-or-error-printing
           (log :continue "Try next appender")
-        (do-logging parent message)))))
+        (do-logging parent message)))
+    (values message log)))
 
 (defun logger-name-from-helper (name)
   (first (split-dot-sym name)))

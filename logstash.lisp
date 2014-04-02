@@ -60,12 +60,12 @@
           :message
           (apply #'format nil
                  (format-control message)
-                 (args message)))
+                 (format-args message)))
          (iter
            (for k in (arg-literals message))
-           (for v in (args message))
+           (for v in (format-args message))
            (as-json-o-val k v)))
-        (:plist-values
-         (iter (for (k v) on (args message) by #'cddr)
-           (as-json-o-val k v)))))))
+        )
+      (iter (for (k v) on (data-plist message) by #'cddr)
+        (as-json-o-val k v)))))
 

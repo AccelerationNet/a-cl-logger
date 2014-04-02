@@ -149,14 +149,6 @@ done."
     ,@body
     ))
 
-(defmacro with-appender ((logger appender) &body body)
-  "Add an appender to logger for the duration of the scope"
-  (alexandria:with-unique-names (log app)
-    `(let ((,log ,logger)
-           (,app ,appender))
-      (unwind-protect
-           (progn
-             (push ,appender (appenders ,log))
-             ,@body)
-        (setf (appenders ,log)
-              (remove ,app (appenders ,log)))))))
+(defmacro push-plist (key val place)
+  `(progn (push ,val ,place)
+    (push ,key ,place)))

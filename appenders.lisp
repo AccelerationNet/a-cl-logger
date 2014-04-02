@@ -33,9 +33,9 @@
           (format stream "~A ~7A "
                   (%logger-name-for-output log)
                   (log-level-name-of message))
-        (if (format-control message)
-            (apply #'format stream (format-control message) (args message))
-            (format stream "~{~A:~A~^, ~}" (args message))))
+        (when (format-control message)
+          (apply #'format stream (format-control message) (format-args message)))
+        (format stream " ~{~A:~A~^, ~}" (data-plist message)))
       (function (print-message log appender (funcall message) stream)))))
 
 (defmacro with-stream-restarts ((s recall) &body body)
