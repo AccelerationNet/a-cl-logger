@@ -209,7 +209,7 @@
                      :level ,(or level (and (not parents) +debug+))
                      :compile-time-level ,compile-time-level
                      :appenders ,appenders
-                     :parents ,parents))
+                     :parents (copy-list ',parents)))
     ,@(iter (for (level-name level-value-name) in-vector *log-level-names*)
         (collect (%make-log-helper name level-value-name)))
     ,(get-logger-var-name name)))
