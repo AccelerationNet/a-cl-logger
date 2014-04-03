@@ -302,6 +302,7 @@
 ;;;; ** Handling Messages
 
 (defun do-log (log level &rest args)
+  (require-logger! log)
   (do-logging log (make-message log level args)))
 
 (defgeneric do-logging (logger message)
