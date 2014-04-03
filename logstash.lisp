@@ -3,10 +3,6 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
-'(progn
-  (deflogger testlog ())
-  (push (make-instance 'logstash-appender) (appenders *testlog*)))
-
 (defclass node-logstash-appender (stream-log-appender)
   ((log-stash-type :accessor log-stash-type :initarg :log-stash-type :initform nil)
    (log-stash-server
@@ -39,10 +35,10 @@
     ))
 
 
-(defmethod print-message (log
-                           (appender node-logstash-appender)
-                           (message message)
-                           stream)
+(defmethod print-message ((log logger)
+                          (appender node-logstash-appender)
+                          (message message)
+                          stream)
   (let ((json::*json-output* stream))
     (json:with-object ()
       (json:encode-object-member :type (or
@@ -69,13 +65,16 @@
       (iter (for (k v) on (data-plist message) by #'cddr)
         (as-json-o-val k v)))))
 
-(defun ensure-node-logstash-appender (logger &key log-stash-server)
+(defun ensure-node-logstash-appender (logger
+                                      &key log-stash-server
+                                      (new-type 'node-logstash-appender))
   (require-logger! logger)
   (iter (for app in (appenders logger))
     (when (and (typep app 'node-logstash-appender)
                (string-equal (log-stash-server app) log-stash-server))
       (return-from ensure-node-logstash-appender app)))
-  (let ((new (make-instance 'node-logstash-appender :log-stash-server log-stash-server)))
+  (let ((new (make-instance new-type
+                            :log-stash-server log-stash-server)))
     (push new (appenders logger))
     new))
 

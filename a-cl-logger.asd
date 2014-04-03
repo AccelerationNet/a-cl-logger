@@ -14,7 +14,8 @@
   ((:file "packages")
    (:file "utils")
    (:file "log")
-   (:file "appenders"))
+   (:file "appenders")
+   (:file "helpers"))
   :depends-on (:iterate :symbol-munger :alexandria :cl-interpol :cl-json :local-time))
 
 (defsystem :a-cl-logger-tests

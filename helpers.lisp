@@ -67,3 +67,26 @@
     (let ((log-path (make-log-path log-root file-name)))
       (ensure-file-appender logger log-path :buffer-p buffer-p)))
   (when level (setf (log.level logger) level)))
+
+(defvar *log-message* nil)
+
+(defmacro with-log-message-data-context ((&body data-builder)
+                                         &body body)
+
+  "A macro that allows appending data to the log message based on the dynamic
+   context of the message as it is being generated.
+
+   The data builder will be executed inside a context where
+   (push-into-message key value) is a function to put data into the message
+
+   Ex: attaching information about the current http-context to log messages
+   originating from it.
+  "
+  `(handler-bind
+    ((generating-message
+      (lambda (c)          
+        (let ((*log-message* (message c)))
+          (flet ((push-into-message (key data)
+                   (push-plist key data (data-plist *log-message*))))
+            ,@data-builder)))))
+    ,@body))

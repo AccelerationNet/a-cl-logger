@@ -47,6 +47,8 @@
 
            #:with-appender
            #:log-around
-           
+           #:*log-message*
+           #:with-log-message-data-context
+           #:push-into-message
            ))
 
