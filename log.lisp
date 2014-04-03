@@ -157,7 +157,7 @@
   (dolist (anc (parents log))
     (pushnew log (children anc) :key #'name))
   (unless (or (appenders log) (parents log))
-    (ensure-stderr-appender log)))
+    (ensure-debug-io-appender log)))
 
 (defun make-message (logger level args
                      &key arg-literals data-plist
@@ -229,18 +229,18 @@
 (defgeneric enabled-p (log level)
   (:method ((l logger) level)
     (>= (ensure-level-value level)
-        (ensure-level-value (log.level l)))))
+        (ensure-level-value (log-level l)))))
 
-(defgeneric log.level (log)
+(defgeneric log-level (log)
   (:method ( log )
     (require-logger! log)
     (or (level log)
         (if (parents log)
             (loop for parent in (parents log)
-                  minimize (log.level parent))
+                  minimize (log-level parent))
             (error "Can't determine level for ~S" log)))))
 
-(defgeneric (setf log.level) (new log &optional recursive)
+(defgeneric (setf log-level) (new log &optional recursive)
   (:documentation
    "Change the logger's level of to NEW-LEVEL. If RECUSIVE is T the
   setting is also applied to the sub logger of logger.")
@@ -250,7 +250,7 @@
     (setf (slot-value log 'level) new-level)
     (when recursive
       (dolist (child (children log))
-        (setf (log.level child) new-level)))
+        (setf (log-level child) new-level)))
     new-level))
 
 (defun %logger-name-for-output (log &key (width *max-logger-name-length*))

@@ -50,6 +50,9 @@
             ,logger-form))
         ))))
 
+(defun make-log-path (root file)
+  (make-pathname :name file :type "log" :defaults root))
+
 (defun setup-logger (logger &key level file-name log-root (buffer-p t))
   "Reconfigures a logger such that it matches the setup specified
 
@@ -61,9 +64,6 @@
   (require-logger! logger)
   (ensure-stderr-appender logger)
   (when (and log-root file-name)
-    (let ((log-path (make-pathname
-                     :name file-name
-                     :type "log"
-                     :defaults log-root)))
+    (let ((log-path (make-log-path log-root file-name)))
       (ensure-file-appender logger log-path :buffer-p buffer-p)))
   (when level (setf (log.level logger) level)))

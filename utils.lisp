@@ -159,4 +159,4 @@ done."
     (symbol (when (ignore-errors (find-class o))
               o))
     (standard-class (class-name o))
-    (standard-object (class-name (class-of o))))))
+    (standard-object (class-name (class-of o)))))

@@ -5,7 +5,7 @@
   (:nicknames :a-log)
   (:import-from #:alexandria #:ensure-list )
   (:export #:+dribble+ #:+debug+ #:+info+ #:+warn+ #:+error+ #:+fatal+
-           #:*log-level-names*
+           #:*log-level-names* #:log-level-name-of
 
            #:do-logging
            #:print-message
@@ -13,6 +13,7 @@
            
            #:define-logger
            #:logger
+           #:log-level
            #:name
            #:appenders
            #:parents
@@ -25,6 +26,8 @@
            #:file-log-appender
            #:ensure-stderr-appender
            #:ensure-file-appender
+           #:ensure-debug-io-appender
+           #:make-log-path
 
            #:node-logstash-appender
            #:ensure-node-logstash-appender

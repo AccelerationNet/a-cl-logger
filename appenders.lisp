@@ -17,6 +17,10 @@
   ()
   (:default-initargs :stream *error-output*))
 
+(defclass debug-io-log-appender (stream-log-appender)
+  ()
+  (:default-initargs :stream *debug-io*))
+
 (defclass file-log-appender (stream-log-appender)
   ((log-file :initarg :log-file :accessor log-file
              :documentation "Name of the file to write log messages to.")
@@ -104,19 +108,26 @@
       (%open-log-file appender)
       (ignore-errors (call-next-method)))))
 
-(defun ensure-stderr-appender (logger &aux it)
+(defun ensure-stream-appender (logger stream
+                               &key (new-type 'stream-log-appender))
   (require-logger! logger)
-  (unless
-      #+sbcl (find "--quiet" sb-ext:*posix-argv* :test #'equal)
-      #-sbcl nil
-      (setf it (find 'stderr-log-appender (appenders logger)
-                     :key #'class-name-of))
-      (when (or (null it)
-                (not (eql (log-stream it) *error-output*)))
-        (setf (appenders logger) (remove it (appenders logger))
-              it (make-instance 'stderr-log-appender))
-        (push it (appenders logger)))
-      it))
+  (iter (for app in (appenders logger))
+    (when (and (typep app 'stream-log-appender)
+               (equal (log-stream app) stream))
+      (return-from ensure-stream-appender app)))
+  (let ((new (make-instance new-type :stream stream)))
+    (push new (appenders logger))
+    new))
+
+(defun ensure-stderr-appender (logger)
+  (require-logger! logger)
+  (ensure-stream-appender
+   logger *error-output* :new-type 'stderr-log-appender))
+
+(defun ensure-debug-io-appender (logger)
+  (require-logger! logger)
+  (ensure-stream-appender
+   logger *debug-io* :new-type 'debug-io-log-appender))
 
 (defun ensure-file-appender (logger path &key (buffer-p t))
   (require-logger! logger)
