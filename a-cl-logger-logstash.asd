@@ -12,4 +12,4 @@
   :serial t
   :components
   ((:file "logstash"))
-  :depends-on (:a-cl-logger :zeromq :cl-json))
+  :depends-on (:a-cl-logger :zmq :cl-json))
