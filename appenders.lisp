@@ -8,7 +8,7 @@
   (:documentation "The base of all log appenders (destinations)"))
 
 (defclass stream-log-appender (appender)
-  ((stream :initarg :stream :accessor log-stream)
+  ((stream :initarg :stream :accessor log-stream :initform nil)
    (date-format :initarg :date-format :initform :time
     :documentation "Format to print dates. Format can be one of: (:iso :stamp :time)"))
   (:documentation "Human readable to the console logger."))
@@ -42,7 +42,9 @@
                   (%logger-name-for-output log)
                   (log-level-name-of message))
         (when (format-control message)
-          (apply #'format stream (format-control message) (format-args message)))
+          (if (format-args message)
+              (apply #'format stream (format-control message) (format-args message))
+              (write-sequence (format-control message) stream)))
         (format stream " ~{~A:~A~^, ~}" (data-plist message)))
       (function (print-message log appender (funcall message) stream)))))
 
@@ -129,7 +131,9 @@
   (ensure-stream-appender
    logger *debug-io* :new-type 'debug-io-log-appender))
 
-(defun ensure-file-appender (logger path &key (buffer-p t))
+(defun ensure-file-appender (logger
+                             &key (buffer-p t) name directory
+                             (path (make-log-path directory (or name (string (name logger))))))
   (require-logger! logger)
   (iter (for app in (appenders logger))
     (when (and (typep app 'file-log-appender)

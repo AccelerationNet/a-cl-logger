@@ -63,10 +63,9 @@
    and if a file-name is passed in a file-logger going to it"
   (require-logger! logger)
   (ensure-stderr-appender logger)
-  (when (and log-root file-name)
-    (let ((log-path (make-log-path log-root file-name)))
-      (ensure-file-appender logger log-path :buffer-p buffer-p)))
-  (when level (setf (log.level logger) level)))
+  (when log-root
+    (ensure-file-appender logger :directory log-root :name file-name :buffer-p buffer-p))
+  (when level (setf (log-level logger) level)))
 
 (defvar *log-message* nil)
 

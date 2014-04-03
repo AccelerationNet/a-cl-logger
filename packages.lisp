@@ -7,6 +7,7 @@
   (:export #:+dribble+ #:+debug+ #:+info+ #:+warn+ #:+error+ #:+fatal+
            #:*log-level-names* #:log-level-name-of
 
+           #:do-log
            #:do-logging
            #:print-message
            #:append-message

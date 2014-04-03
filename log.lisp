@@ -301,6 +301,9 @@
 
 ;;;; ** Handling Messages
 
+(defun do-log (log level &rest args)
+  (do-logging log (make-message log level args)))
+
 (defgeneric do-logging (logger message)
   (:documentation
    "Applys a message to 
@@ -311,7 +314,7 @@
     (declare (ignore logger message))
     ;; turn off line wrapping for the entire time while inside the loggers
     (with-logging-io () (call-next-method)))
-  (:method ( log message )
+  (:method ( log (message message))
     (require-logger! log)
     ;; this is probably a duplicate check, because our helper macros check
     ;; before evaluating the message args, but good to be sure, so that
