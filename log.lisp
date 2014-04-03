@@ -157,7 +157,7 @@
   (dolist (anc (parents log))
     (pushnew log (children anc) :key #'name))
   (unless (or (appenders log) (parents log))
-    (setup-logger log)))
+    (ensure-stderr-appender log)))
 
 (defun make-message (logger level args
                      &key arg-literals data-plist
@@ -349,27 +349,4 @@
        (values)))
     (function logger)))
 
-(defun setup-logger (logger &key level file-name log-root (buffer-p t))
-  "Reconfigures a logger such that it matches the setup specified
 
-   This is sometimes necessary if your streams get messed up (eg: slime
-   disconnect and reconnect)
-
-   Always ensure there is a *error-output* stream logger
-   and if a file-name is passed in a file-logger going to it"
-  (require-logger! logger)
-  (unless level (setf level (level logger)))
-  (setf (appenders logger) nil)
-  (unless (find "--quiet" sb-ext:*posix-argv* :test #'equal)
-    (push (make-instance 'stream-log-appender :stream *error-output*)
-          (appenders logger)))
-  (when (and log-root file-name)
-    (let ((log-path (make-pathname
-                     :name file-name
-                     :type "log"
-                     :defaults log-root)))
-      (push (make-instance 'file-log-appender
-                           :log-file log-path
-                           :buffer-p buffer-p)
-            (appenders logger))))
-  (setf (log.level logger) level))

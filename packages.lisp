@@ -20,9 +20,14 @@
            #:children
            
            #:appender
-           #:stream-appender
-           #:file-appender
+           #:stream-log-appender
+           #:stderr-log-appender
+           #:file-log-appender
+           #:ensure-stderr-appender
+           #:ensure-file-appender
+
            #:node-logstash-appender
+           #:ensure-node-logstash-appender
 
            #:message
            #:args

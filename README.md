@@ -15,7 +15,7 @@ sent to a logger will also be sent to that loggers's parents.
 
 Each logger has a level which is used to determine whether are particular
 message should be processed or not. Loggers inherit their log level from
-their ancestors. If a logger has multiple direct parents its log level is
+their parents. If a logger has multiple direct parents its log level is
 the min of the levels of its parents.
 
 ### Goals
@@ -35,3 +35,9 @@ eg:
 (testlog.debug "Format-string example:#~d" 1)
 (testlog.debug :a-plist-key :a-plist-value :some-key "some value")
 ```
+
+### Gotchas
+
+ * There are some SBCL specifics.  Cross platform help would be nice
+  * "--quiet" command line arg
+  * logstash hostname 

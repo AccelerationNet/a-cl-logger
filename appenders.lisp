@@ -13,6 +13,10 @@
     :documentation "Format to print dates. Format can be one of: (:iso :stamp :time)"))
   (:documentation "Human readable to the console logger."))
 
+(defclass stderr-log-appender (stream-log-appender)
+  ()
+  (:default-initargs :stream *error-output*))
+
 (defclass file-log-appender (stream-log-appender)
   ((log-file :initarg :log-file :accessor log-file
              :documentation "Name of the file to write log messages to.")
@@ -58,8 +62,7 @@
                            message)
   (with-stream-restarts (s (append-message logger s message))
     (maybe-with-presentations ((log-stream s) str)
-      (let* ((logger-name (symbol-name (name logger)))
-             (format (slot-value s 'date-format)))
+      (let* ((format (slot-value s 'date-format)))
         (format-time :stream str :format format)
         (princ #\space str)
         (print-message logger s message str)
@@ -100,4 +103,32 @@
     (open-log-file ()
       (%open-log-file appender)
       (ignore-errors (call-next-method)))))
+
+(defun ensure-stderr-appender (logger &aux it)
+  (require-logger! logger)
+  (unless
+      #+sbcl (find "--quiet" sb-ext:*posix-argv* :test #'equal)
+      #-sbcl nil
+      (setf it (find 'stderr-log-appender (appenders logger)
+                     :key #'class-name-of))
+      (when (or (null it)
+                (not (eql (log-stream it) *error-output*)))
+        (setf (appenders logger) (remove it (appenders logger))
+              it (make-instance 'stderr-log-appender))
+        (push it (appenders logger)))
+      it))
+
+(defun ensure-file-appender (logger path &key (buffer-p t))
+  (require-logger! logger)
+  (iter (for app in (appenders logger))
+    (when (and (typep app 'file-log-appender)
+               (equal (log-file app) path))
+      ;; if we find a matching appender, 
+      (setf (buffer-p app) buffer-p)
+      (return-from ensure-file-appender app)))
+  (let ((new (make-instance 'file-log-appender
+                            :log-file path
+                            :buffer-p buffer-p)))
+    (push new (appenders logger))
+    new))
 

@@ -69,3 +69,13 @@
       (iter (for (k v) on (data-plist message) by #'cddr)
         (as-json-o-val k v)))))
 
+(defun ensure-node-logstash-appender (logger &key log-stash-server)
+  (require-logger! logger)
+  (iter (for app in (appenders logger))
+    (when (and (typep app 'node-logstash-appender)
+               (string-equal (log-stash-server app) log-stash-server))
+      (return-from ensure-node-logstash-appender app)))
+  (let ((new (make-instance 'node-logstash-appender :log-stash-server log-stash-server)))
+    (push new (appenders logger))
+    new))
+

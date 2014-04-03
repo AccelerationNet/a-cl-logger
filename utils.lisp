@@ -152,3 +152,11 @@ done."
 (defmacro push-plist (key val place)
   `(progn (push ,val ,place)
     (push ,key ,place)))
+
+(defun class-name-of (o)
+  (typecase o
+    (null nil)
+    (symbol (when (ignore-errors (find-class o))
+              o))
+    (standard-class (class-name o))
+    (standard-object (class-name (class-of o))))))
