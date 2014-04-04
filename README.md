@@ -46,6 +46,32 @@ eg:
 (testlog.debug :a-plist-key :a-plist-value :some-key "some value")
 ```
 
+### Logging
+
+Logging can be accomplished by a couple of means:
+
+Helper macros are created like:
+
+```
+(testlog.debug "Format-string example:#~d" 1)
+(testlog.info :a-plist-key :a-plist-value :some-key "some value")
+```
+
+The `do-log` function can also be used
+
+```
+(do-log *testlog* +info+ "Format-string example:#~d" 1)
+(do-log 'testlog +debug+ :a-plist-key :a-plist-value :some-key "some value")
+```
+
+There is also a helper get-log-fn which will create a function of
+(&rest args) that logs to a given logger and level).  This is useful
+for libraries that supply functional logging hooks
+
+```
+(get-log-fn *testlog* :level +info+) => (lambda (&rest args) ...)
+```
+
 ### Changing / Adding to the messages being logged
 
 Messages generate signals on being created and on being appended.
@@ -63,6 +89,7 @@ to will be a copy of the original (see copy-message).
  * There has been some significant renaming
   * deflogger -> define-logger
   * log-category -> logger
+  * appenders are separate from formatters
  * File streams ensure the file is open to write to
  * Failing to write to one appender / logger doesnt prevent the rest
    from working

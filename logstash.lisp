@@ -43,13 +43,16 @@
 
 (defun ensure-node-logstash-appender (logger
                                       &key log-stash-server
-                                      (new-type 'node-logstash-appender))
+                                      (type 'node-logstash-appender))
   (require-logger! logger)
-  (iter (for app in (appenders logger))
-    (when (and (typep app 'node-logstash-appender)
-               (string-equal (log-stash-server app) log-stash-server))
-      (return-from ensure-node-logstash-appender app)))
-  (let ((new (make-instance new-type
+  (alexandria:when-let
+      (a (find-appender
+          logger
+          :type type
+          :predicate (lambda (a) (string-equal (log-stash-server a)
+                                          log-stash-server))))
+    (return-from ensure-node-logstash-appender a))
+  (let ((new (make-instance type
                             :log-stash-server log-stash-server)))
     (push new (appenders logger))
     new))
