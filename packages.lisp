@@ -40,9 +40,9 @@
            #:ensure-node-logstash-appender
 
            #:message
-           #:args
+           #:format-args
            #:format-control
-           #:args-plist
+           #:data-plist
 
            #:get-log-fn
            #:setup-logger

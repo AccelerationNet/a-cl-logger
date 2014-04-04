@@ -83,7 +83,7 @@
 
 
 
-(defmacro when-log-message-created ((&body handler-body)
+(defmacro when-log-message-generated ((&body handler-body)
                                     &body body)
 
   "A macro that allows appending data to the log message based on the dynamic

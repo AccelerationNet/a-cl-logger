@@ -105,8 +105,8 @@
               :initform (local-time:now))))
 
 (defun copy-messsage (m &rest plist)
-  (let ((new (apply #'make-instance 'message
-                    (iter (for s in (closer-mop:class-slots 'message))
+  (let ((new (apply #'make-instance (class-of m)
+                    (iter (for s in (closer-mop:class-slots (class-of m)))
                       (for sn = (closer-mop:slot-definition-name s))
                       (when (slot-boundp m sn)
                         (collect (symbol-munger:lisp->keyword sn))

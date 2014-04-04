@@ -17,9 +17,11 @@
    (level :accessor level :initarg :level :initform nil))
   (:documentation "The base of all log appenders (destinations)"))
 
-(defmethod initialize-instance :after ((a appender) &key &allow-other-keys)
-  (when (symbolp (formatter a))
-    (setf (formatter a) (make-instance (formatter a)))))
+(defmethod initialize-instance :after ((a appender)
+                                       &key &allow-other-keys
+                                       &aux (f (formatter a)))
+  (when (and f (symbolp f))
+    (setf (formatter a) (make-instance f))))
 
 (defclass stream-log-appender (appender)
   ((stream :initarg :stream :accessor log-stream :initform nil)
@@ -63,8 +65,9 @@
 
 (defgeneric format-message
     (appender formatter message stream)
-  (:method ((appender appender) formatter message stream)
-    (format stream "~A ~7A "
+  (:method ((appender appender) formatter (message message) stream)
+    (format stream "~A ~A ~7A "
+            (timestamp message)
             (%logger-name-for-output
              (or (name message)
                  (logger message)))
@@ -73,8 +76,8 @@
       (if (format-args message)
           (apply #'format stream (format-control message) (format-args message))
           (write-sequence (format-control message) stream)))
-    (format stream " ~{~A:~A~^, ~}"
-            (%filter-plist (data-plist message))))
+    (format stream " ~{~A:~A~^, ~}~%"
+            (%filter-plist message)))
   
   (:method ((appender appender)
             (formatter json-formatter)
@@ -110,7 +113,7 @@
           (when (arg-literals message)
             (json:encode-object-member
              :arg-literals (arg-literals message)))
-          (iter (for (k v) on (%filter-plist (data-plist message) seen)
+          (iter (for (k v) on (%filter-plist message seen)
                      by #'cddr)
             (as-json-o-val k v)))))))
 
