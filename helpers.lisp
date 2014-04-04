@@ -1,6 +1,19 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
+(defun get-log-fn (logger &key (level +debug+))
+  "Given a logger identifier name like 'adwolf-log.debug or 'adwolf-log find the logger
+   associated with it and build a (lambda (message &rest args)) that can be
+   funcalled to log to that logger.
+   "
+  (get-logger! logger)
+  (etypecase logger
+    (null nil)
+    (logger
+     (lambda (&rest args)
+       (apply #'do-log logger level args)))
+    (function logger)))
+
 (defmacro with-appender ((logger appender) &body body)
   "Add an appender to logger for the duration of the scope"
   (alexandria:with-unique-names (log app)
@@ -17,19 +30,20 @@
   (when (format-control message)
     (setf (format-control message)
           #?"BEGIN ${(format-control message)}"))
-  (push-plist :begin (timestamp message) (data-plist message)))
+  (push-m-plist (list :begin (timestamp message))
+                message))
 
 (defun close-message-block (open message)
   (when (format-control message)
     (setf (format-control message)
-          #?"  END ${(format-control message)}"))
-  
-  (push-plist :end  (timestamp message) (data-plist message))
-  (push-plist :begin (timestamp open) (data-plist message))
-  (push-plist :duration (local-time:timestamp-difference
+          #?"  END ${(format-control message)}"))  
+  (push-m-plist
+   (list :end  (timestamp message) 
+         :begin (timestamp open)
+         :duration (local-time:timestamp-difference
                          (timestamp message)
-                         (timestamp open))
-              (data-plist message)))
+                         (timestamp open)))
+   message))
 
 (defmacro log-around ( logger-form &body body )
   (alexandria:with-unique-names (open message)
@@ -67,10 +81,33 @@
     (ensure-file-appender logger :directory log-root :name file-name :buffer-p buffer-p))
   (when level (setf (log-level logger) level)))
 
-(defvar *log-message* nil)
 
-(defmacro with-log-message-data-context ((&body data-builder)
-                                         &body body)
+
+(defmacro when-log-message-created ((&body handler-body)
+                                    &body body)
+
+  "A macro that allows appending data to the log message based on the dynamic
+   context of the message as it is being generated.
+
+   The data-builder-form will be executed inside a context where
+   (push-into-message key value) is a function to put data into the message
+   the first form is
+
+   Inside of the handler body, a `change-message` restart is available
+
+   Ex: attaching information about the current http-context to log messages
+   originating from it.
+  "
+  `(handler-bind
+    ((generating-message
+      (lambda (c)                  
+        (flet ((push-into-message (&rest plist)
+                 (push-m-plist plist (message c))))
+          ,@handler-body))))
+    ,@body))
+
+(defmacro when-log-message-appended ((&body handler-body)
+                                     &body body)
 
   "A macro that allows appending data to the log message based on the dynamic
    context of the message as it is being generated.
@@ -78,14 +115,15 @@
    The data builder will be executed inside a context where
    (push-into-message key value) is a function to put data into the message
 
+   Inside of the handler body, a `change-message` restart is available
+
    Ex: attaching information about the current http-context to log messages
    originating from it.
   "
   `(handler-bind
-    ((generating-message
-      (lambda (c)          
-        (let ((*log-message* (message c)))
-          (flet ((push-into-message (key data)
-                   (push-plist key data (data-plist *log-message*))))
-            ,@data-builder)))))
+    ((appending-message
+      (lambda (c)
+        (flet ((push-into-message (&rest plist)
+                 (push-m-plist plist (message c))))
+          ,@handler-body))))
     ,@body))

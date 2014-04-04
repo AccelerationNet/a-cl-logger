@@ -78,7 +78,8 @@ done."
       (fresh-line ,os-name)
       (write-sequence ,msg-name ,os-name))))
 
-(define-mutator-macros ensure-list get-logger require-logger ensure-level-value)
+(define-mutator-macros
+    ensure-list get-logger require-logger ensure-level-value ensure-message)
 
 (defmacro with-logger-level (logger-name new-level &body body)
   "Set the level of the listed logger(s) to NEW-LEVEL and restore the original value in an unwind-protect."
@@ -149,9 +150,12 @@ done."
     ,@body
     ))
 
-(defmacro push-plist (key val place)
-  `(progn (push ,val ,place)
-    (push ,key ,place)))
+(defmacro push-m-plist (plist
+                        place)
+  (alexandria:with-unique-names (pl)
+    `(let ((,pl (copy-list ,plist)))
+      (setf (cdr (last ,pl)) (data-plist ,place))
+      (setf (data-plist ,place) ,pl))))
 
 (defun class-name-of (o)
   (typecase o
@@ -160,3 +164,8 @@ done."
               o))
     (standard-class (class-name o))
     (standard-object (class-name (class-of o)))))
+
+(defun ensure-message (it)
+  (etypecase it
+    (message it)
+    (function (funcall it))))

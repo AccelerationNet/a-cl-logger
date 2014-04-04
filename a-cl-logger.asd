@@ -16,7 +16,8 @@
    (:file "log")
    (:file "appenders")
    (:file "helpers"))
-  :depends-on (:iterate :symbol-munger :alexandria :cl-interpol :cl-json :local-time))
+  :depends-on (:iterate :symbol-munger :alexandria :cl-interpol :cl-json :local-time
+                :cl-json :closer-mop))
 
 (defsystem :a-cl-logger-tests
   :description "A library refactoring of arnesi"

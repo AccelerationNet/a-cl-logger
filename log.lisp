@@ -3,6 +3,9 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
+(defvar *message* nil)
+(defvar *appender* nil)
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter +dribble+ 0)
   (defparameter +debug+   1)
@@ -62,10 +65,15 @@
 (define-condition generating-message ()
   ((message :accessor message :initarg :message :initform nil)))
 
-(defun maybe-signal-generating-message (message)
-  (when (signal-messages (logger message))
-    (signal (make-condition 'generating-message :message message)))
-  message)
+(defun maybe-signal-generating-message (message &aux (*message* message))
+  (restart-case
+      (progn (when (signal-messages (logger message))
+               (signal (make-condition 'generating-message :message message)))
+             message)
+    (change-message (new)
+      :report "Change the message to be logged"
+      (return-from maybe-signal-generating-message
+        new))))
 
 (define-condition appending-message ()
   ((message :accessor message :initarg :message :initform nil)
@@ -73,13 +81,21 @@
    (appender :accessor appender :initarg :appender :initform nil)))
 
 (defun maybe-signal-appending-message (logger appender message)
-  (when (signal-messages logger)
-    (signal (make-condition 'appending-message
-                            :logger logger :message message :appender appender)))
-  message )
+  (let ((*log-message* message ))
+    (restart-case
+        (progn
+          (when (signal-messages logger)
+            (signal (make-condition 'appending-message
+                                    :logger logger :message message :appender appender)))
+          message)
+      (change-message (new)
+        :report "Change the message to be logged"
+        (return-from maybe-signal-appending-message
+          new)))))
 
 (defclass message ()
-  ((logger :accessor logger :initarg :logger :initform nil)
+  ((name :accessor name :initarg :name :initform nil)
+   (logger :accessor logger :initarg :logger :initform nil)
    (level :accessor level :initarg :level :initform nil)
    (format-control :accessor format-control :initarg :format-control :initform nil)
    (format-args :accessor format-args :initarg :format-args :initform nil)
@@ -87,6 +103,16 @@
    (arg-literals :accessor arg-literals :initarg :arg-literals :initform nil)
    (timestamp :accessor timestamp :initarg :timestamp
               :initform (local-time:now))))
+
+(defun copy-messsage (m &rest plist)
+  (let ((new (apply #'make-instance 'message
+                    (iter (for s in (closer-mop:class-slots 'message))
+                      (for sn = (closer-mop:slot-definition-name s))
+                      (when (slot-boundp m sn)
+                        (collect (symbol-munger:lisp->keyword sn))
+                        (collect (slot-value m sn)))))))
+    (push-m-plist plist new)
+    new))
 
 (defclass logger ()
   ((name :initarg :name :accessor name :initform nil)
@@ -113,21 +139,25 @@
   (destructuring-bind (name &optional level)
       ;; a dot followed by lookahead: no more dots till the end of the string
       (cl-ppcre:split #?r"\.(?=[^\.]+$)" (string sym))
-    (list (symbol-munger:reintern name (or (symbol-package sym) *package*))
-          (log-level-name-of level))))
+    (let ((level (log-level-name-of level)))
+      (if level
+          (list (symbol-munger:reintern name (or (symbol-package sym) *package*))
+                level)
+          (list sym)))))
 
 (defun ensure-level-value (level)
   (typecase level
     (null 1)
     (integer level)
-    ((or message logger) (ensure-level-value (level level)))
     (symbol
-     (third (log-level-name-of level :raw? t )))))
+     (third (log-level-name-of level :raw? t )))
+    (t (ensure-level-value (log-level level)))))
 
 (defun log-level-name-of (level &key raw?)
   (etypecase level
     (null nil)
-    (message (log-level-name-of (level level)))
+    ((or logger appender message)
+     (log-level-name-of (log-level level)))
     ((or symbol string)
      (let* ((ln (string level))
             (proper-names
@@ -194,7 +224,8 @@
     (with-spliced-unique-name (args)
       (splice-in-local-symbol-values
        (list 'logger logger-var 'level level-name
-             'message-args mform)     
+             'message-args mform)
+       ;; prevents evaluating message-args if we are not enabled
        '(when (enabled-p logger level)
          (do-logging logger message-args))))))
 
@@ -226,19 +257,21 @@
     ,(get-logger-var-name name)))
 
 ;;; Runtime levels
-(defgeneric enabled-p (log level)
-  (:method ((l logger) level)
-    (>= (ensure-level-value level)
-        (ensure-level-value (log-level l)))))
+(defun enabled-p (object check-against)
+  (>= (ensure-level-value object)
+      (ensure-level-value check-against)))
 
 (defgeneric log-level (log)
-  (:method ( log )
-    (require-logger! log)
+  (:method ((log logger))
     (or (level log)
         (if (parents log)
             (loop for parent in (parents log)
                   minimize (log-level parent))
-            (error "Can't determine level for ~S" log)))))
+            (error "Can't determine level for ~S" log))))
+  (:method (it &aux (log (get-logger it)))
+    (if log
+        (log-level log)
+        (level it))))
 
 (defgeneric (setf log-level) (new log &optional recursive)
   (:documentation
@@ -270,12 +303,12 @@
              :start2 (max 0 (- len width)))))
 
 ;;; Compile time levels
-(defgeneric compile-time-enabled-p (log level)
-  (:method (log level)
-    (require-logger! log)
-    (>= (ensure-level-value level)
-        (or (ensure-level-value (log.compile-time-level log))
-            +dribble+))))
+(defgeneric compile-time-enabled-p (object check-against)
+  (:method (object check-against)
+    (require-logger! object)
+    (>= (or (ensure-level-value (log.compile-time-level object))
+            +dribble+)
+        (ensure-level-value check-against))))
 
 (defgeneric log.compile-time-level (log)
   (:method ( log )
@@ -320,12 +353,17 @@
     ;; this is probably a duplicate check, because our helper macros check
     ;; before evaluating the message args, but good to be sure, so that
     ;; extensions and calls to do-logging behave as expected
-    (unless (enabled-p log message) (return-from do-logging))
+    (unless (enabled-p message log) (return-from do-logging))
     ;; if we have any appenders send them the message
-    (dolist (appender (appenders log))
+    (dolist (*appender* (appenders log))
       (with-debugging-or-error-printing
           (log :continue "Try next appender")
-        (append-message log appender message)))
+        (when (enabled-p message *appender*)
+        (append-message
+         *appender*
+         ;; this will possibly change the message
+         (maybe-signal-appending-message
+          log *appender* message)))))
     (dolist (parent (parents log))
       (with-debugging-or-error-printing
           (log :continue "Try next appender")
@@ -333,24 +371,10 @@
     (values message log)))
 
 (defun logger-name-from-helper (name)
-  (first (split-dot-sym name)))
+  (first (split-log-helper name)))
 
 (defun logger-level-from-helper (name)
-  (second (split-dot-sym name)))
+  (second (split-log-helper name)))
 
-(defun get-log-fn (logger &key (level +debug+))
-  "Given a logger identifier name like 'adwolf-log.debug or 'adwolf-log find the logger
-   associated with it and build a (lambda (message &rest args)) that can be
-   funcalled to log to that logger.
-   "
-  (get-logger! logger)
-  (etypecase logger
-    (null nil)
-    (logger
-     (lambda (&rest args)
-       (when (enabled-p logger level)
-         (do-logging logger (make-message logger level args)))
-       (values)))
-    (function logger)))
 
 

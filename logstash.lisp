@@ -7,7 +7,8 @@
   ((log-stash-type :accessor log-stash-type :initarg :log-stash-type :initform nil)
    (log-stash-server
     :accessor log-stash-server :initarg :log-stash-server
-    :initform nil)))
+    :initform nil))
+  (:default-initargs :formatter 'json-formatter))
 
 (defun zeromq-send-data (json &key server &aux connected)
   "Push a message to the logstash zmq"
@@ -25,45 +26,20 @@
           ;; (zmq:disconnect socket server)
           )))))
 
-(defmethod append-message ((log logger)
-                           (appender node-logstash-appender)
+(defmethod append-message ((appender node-logstash-appender)
                            message)
+  (setf message
+        (copy-messsage
+         message
+         :type (log-stash-type appender)))
   (let ((out (with-output-to-string (json)
-               (print-message log appender message json))))
-    (format t "~%SENDING ZMQ MSQ: ~A~%" out)
-    (zeromq-send-data out :server (log-stash-server appender))
-    ))
-
-
-(defmethod print-message ((log logger)
-                          (appender node-logstash-appender)
-                          (message message)
-                          stream)
-  (let ((json::*json-output* stream))
-    (json:with-object ()
-      (json:encode-object-member :type (or
-                                        (log-stash-type appender)
-                                        (name log)))
-      (json:encode-object-member
-       :tags (list* (name log) (mapcar #'name (parents log))))
-      (json:encode-object-member :file nil)
-      (json:encode-object-member :level (log-level-name-of message))
-      (json:encode-object-member :hostname #+sbcl (sb-unix:unix-gethostname))
-      (json:encode-object-member :@timestamp (princ-to-string (timestamp message)))
-      (cond
-        ((format-control message)
-         (json:encode-object-member
-          :message
-          (apply #'format nil
-                 (format-control message)
-                 (format-args message)))
-         (iter
-           (for k in (arg-literals message))
-           (for v in (format-args message))
-           (as-json-o-val k v)))
-        )
-      (iter (for (k v) on (data-plist message) by #'cddr)
-        (as-json-o-val k v)))))
+               (format-message
+                appender
+                (formatter appender)
+                message
+                json))))
+    ; (format t "~%SENDING ZMQ MSQ: ~A~%" out)
+    (zeromq-send-data out :server (log-stash-server appender))))
 
 (defun ensure-node-logstash-appender (logger
                                       &key log-stash-server

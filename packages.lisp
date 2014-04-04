@@ -4,12 +4,15 @@
   (:use :cl :iterate)
   (:nicknames :a-log)
   (:import-from #:alexandria #:ensure-list )
+  (:shadow #:formatter)
   (:export #:+dribble+ #:+debug+ #:+info+ #:+warn+ #:+error+ #:+fatal+
            #:*log-level-names* #:log-level-name-of
+           #:*message*
+           #:*appender*
 
            #:do-log
            #:do-logging
-           #:print-message
+           #:format-message
            #:append-message
            
            #:define-logger
@@ -30,6 +33,9 @@
            #:ensure-debug-io-appender
            #:make-log-path
 
+           #:formatter
+           #:json-formatter
+
            #:node-logstash-appender
            #:ensure-node-logstash-appender
 
@@ -48,8 +54,8 @@
 
            #:with-appender
            #:log-around
-           #:*log-message*
-           #:with-log-message-data-context
+           #:when-log-message-generated
+           #:when-log-message-appended
            #:push-into-message
            ))
 

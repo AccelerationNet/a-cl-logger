@@ -1,6 +1,6 @@
 ## a-cl-logger
 
-A library that separates and extends the arnesi logger.
+A library that separates, extends and refactors the arnesi logger.
 
 ### Description and Glossary 
 
@@ -24,10 +24,20 @@ the min of the levels of its parents.
  * node-logstash integration
  * Swank presentations integration (objects are printed to the REPL as
    an inspectable presentation (C-c M-p)
+ * Support logging of more than just strings, eg: json
+ * Context sensitive logging (easily use the dynamic context to add to 
+   the data being logged)
 
 ### Log message format:
- * Either format-string and arguments
+
+Messages contain:
+ * format-string and arguments
  * plist of keys/values
+ * logger
+ * level
+
+The default printing of a message is  
+"{ts} {logger}{level} formatted-msg {key,val ...}" 
 
 eg:
 
@@ -36,8 +46,23 @@ eg:
 (testlog.debug :a-plist-key :a-plist-value :some-key "some value")
 ```
 
+### Changing / Adding to the messages being logged
+
+Messages generate signals on being created and on being appended.
+At each of these points you can invoke the restart `change-message`
+to alter the message going out.  Generally the message you change 
+to will be a copy of the original (see copy-message).
+
 ### Gotchas
 
  * There are some SBCL specifics.  Cross platform help would be nice
   * "--quiet" command line arg
   * logstash hostname 
+
+### Differences From Arnesi/src/log.lisp
+ * There has been some significant renaming
+  * deflogger -> define-logger
+  * log-category -> logger
+ * File streams ensure the file is open to write to
+ * Failing to write to one appender / logger doesnt prevent the rest
+   from working
