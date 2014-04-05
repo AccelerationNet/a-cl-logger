@@ -38,15 +38,21 @@
     (logger (get-logger-var-name (name name)))
     (symbol (symbol-munger:reintern #?"*${name}*" (symbol-package name)))))
 
+(defun ensure-type (val type)
+  (when (typep val type) val))
+
 (defun get-logger (name)
   (typecase name
     (null nil)
+    (keyword nil) ;; loggers have to have non-keyword names
     (symbol
-     (or (handler-case (symbol-value (get-logger-var-name name))
-           (unbound-variable (c) (declare (ignore c))))
-         (destructuring-bind (name &optional level)
-             (split-log-helper name)
-           (when level (get-logger name)))))
+     (ensure-type 
+      (or (handler-case (symbol-value (get-logger-var-name name))
+            (unbound-variable (c) (declare (ignore c))))
+          (destructuring-bind (name &optional level)
+              (split-log-helper name)
+            (when level (get-logger name))))
+      'logger))
     (logger name)))
 
 (defun require-logger (name)
