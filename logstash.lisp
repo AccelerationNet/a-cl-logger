@@ -31,7 +31,9 @@
   (setf message
         (copy-messsage
          message
-         :type (log-stash-type appender)))
+         :type (princ-to-string
+                (or (log-stash-type appender)
+                    (name (logger message))))))
   (let ((out (with-output-to-string (json)
                (format-message
                 appender
