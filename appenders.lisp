@@ -57,10 +57,10 @@
   (iter
     (with ex = exclude)
     (for (k v) on (data-plist msg) by #'cddr)
-    (collect k into seen)
     (unless (or (member k ex) (member k seen))
       (collect k into rtn)
       (collect v into rtn))
+    (collect k into seen)
     (finally (return rtn))))
 
 (defgeneric format-message
