@@ -1,26 +1,39 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun splice-in-local-symbol-values (plist forms
-                                        &aux (head (first forms)))
+  (defun %with-macro-splicing (plist forms
+                                         &aux (tbl (alexandria:plist-hash-table plist)))
     "Double quasi-quoting hurts my head so lets do it a bit different"
     (when forms
-      (cons
-       (typecase head
-         (list (splice-in-local-symbol-values plist head))
-         (symbol
-          (or (iter (for (k v) on plist by #'cddr)
-                (if (eql head k) (return v)))
-              head))
-         (t head))
-       (splice-in-local-symbol-values plist (rest forms))))))
+      (labels ((find-replacement (in)
+                 (gethash in tbl))
+               (rec (forms)
+                 (iter (for form in forms)
+                   (typecase form
+                     (list (collect (rec form)))
+                     (symbol
+                      (let* ((list-splice? (char-equal #\@ (char (string form) 0))))
+                        (alexandria:if-let (rep (find-replacement form))
+                          (if list-splice?
+                              (appending rep)
+                              (collect rep))
+                          (collect form))))
+                     (t (collect form))))))
+        (rec forms))))
 
-(defmacro with-spliced-unique-name ((&rest names) &body body)
+  (defmacro with-macro-splicing ((&rest names) &body forms)
+    `(%with-macro-splicing
+      (list ,@(iter (for n in names)
+                (appending `(',n ,n))))
+      ',@forms))
+
+  (defmacro with-spliced-unique-name ((&rest names) &body body)
   `(alexandria:with-unique-names (,@names)
-    (splice-in-local-symbol-values
-     (list ,@(iter (for n in names) (appending `(',n ,n))))
-     ,@body)))
+    (with-macro-splicing (,@names)
+     ,@body))))
 
 (defun without-earmuffs (symbol)
   (check-type symbol symbol)

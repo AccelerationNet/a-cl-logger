@@ -3,6 +3,7 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
+(defvar *logger-vars* ())
 (defvar *message* nil)
 (defvar *appender* nil)
 
@@ -56,8 +57,10 @@
   (setf (symbol-value (get-logger-var-name name))
         new))
 
-(defun rem-logger (name)
-  (setf (symbol-value (get-logger-var-name name)) nil))
+(defun rem-logger (name &aux (var (get-logger-var-name name)))
+  (makunbound var)
+  ;; potential race condition
+  (setf *logger-vars* (remove var *logger-vars*)))
 
 
 ;;;; ** Loggers
@@ -75,13 +78,29 @@
       (return-from maybe-signal-generating-message
         new))))
 
+(define-condition logging-message ()
+  ((message :accessor message :initarg :message :initform nil)
+   (logger :accessor logger :initarg :logger :initform nil)))
+
+(defun maybe-signal-logging-message (logger message &aux (*message* message))
+  (let ((*message* message ))
+    (restart-case
+        (progn (when (signal-messages logger)
+                 (signal (make-condition 'logging-message :message message
+                                                          :logger logger)))
+               message)
+      (change-message (new)
+        :report "Change the message to be logged"
+        (return-from maybe-signal-logging-message
+          new)))))
+
 (define-condition appending-message ()
   ((message :accessor message :initarg :message :initform nil)
    (logger :accessor logger :initarg :logger :initform nil)
    (appender :accessor appender :initarg :appender :initform nil)))
 
 (defun maybe-signal-appending-message (logger appender message)
-  (let ((*log-message* message ))
+  (let ((*message* message ))
     (restart-case
         (progn
           (when (signal-messages logger)
@@ -213,47 +232,43 @@
                      data-plist)
        :arg-literals arg-literals)))))
 
-(defmacro log.level-helper (logger level-name message-args
-                            &aux
-                            (logger-var (get-logger-var-name logger))
-                            (mform `(make-message ,logger-var
-                                     ,level-name
-                                     (list ,@message-args)
-                                     :arg-literals '(,@message-args))))
-  (when (compile-time-enabled-p logger level-name)
-    (with-spliced-unique-name (args)
-      (splice-in-local-symbol-values
-       (list 'logger logger-var 'level level-name
-             'message-args mform)
-       ;; prevents evaluating message-args if we are not enabled
-       '(when (enabled-p logger level)
-         (do-logging logger message-args))))))
-
-(defun %make-log-helper (name level-name)
+(defun %make-log-helper (logger message-level-name)
   "Creates macros like logger.debug to facilitate logging"
-  (let* ((logger-macro-name
+  (let* ((logger-var (get-logger-var-name logger))
+         (logger-macro-name
            (symbol-munger:reintern
-            #?"${name}.${ (without-earmuffs level-name) }"
-            (symbol-package name))))
-    (splice-in-local-symbol-values
-     (list 'name name 'level level-name)
-     `(defmacro ,logger-macro-name (&rest message-args)
-       `(log.level-helper name level ,message-args)))))
+            #?"${logger}.${ (without-earmuffs message-level-name) }"
+            (symbol-package logger))))
+    (with-macro-splicing (logger-var message-level-name logger-macro-name)
+      (defmacro logger-macro-name (&rest @message-args)
+        (when (compile-time-enabled-p message-level-name logger-var)
+          (with-macro-splicing (@message-args)
+            ;; prevents evaluating message-args if we are not enabled
+            (when (enabled-p message-level-name logger-var)
+              (do-log logger-var message-level-name @message-args))
+            ))))))
+
+(defmacro define-log-helpers (logger-name)
+  `(progn
+    ,@(iter (for (level-name level-value-name) in-vector *log-level-names*)
+        (collect (%make-log-helper logger-name level-value-name)))))
 
 (defmacro define-logger
-    (name parents &key compile-time-level level appenders documentation)
+    (name parents &key compile-time-level level appenders documentation force?
+          &aux
+          (var-type (if force? 'defparameter 'defvar))
+          (var (get-logger-var-name name)))
   (declare (ignore documentation) (type symbol name))
   `(progn
-    (defparameter
-        ,(get-logger-var-name name)
+    (,var-type ,var
       (make-instance 'logger
                      :name ',name
                      :level ,(or level (and (not parents) +debug+))
                      :compile-time-level ,compile-time-level
                      :appenders ,appenders
                      :parents (copy-list ',parents)))
-    ,@(iter (for (level-name level-value-name) in-vector *log-level-names*)
-        (collect (%make-log-helper name level-value-name)))
+    (pushnew ',var *logger-vars*)
+    (define-log-helpers ,name)
     ,(get-logger-var-name name)))
 
 ;;; Runtime levels
@@ -303,12 +318,12 @@
              :start2 (max 0 (- len width)))))
 
 ;;; Compile time levels
-(defgeneric compile-time-enabled-p (object check-against)
-  (:method (object check-against)
-    (require-logger! object)
-    (>= (or (ensure-level-value (log.compile-time-level object))
-            +dribble+)
-        (ensure-level-value check-against))))
+(defgeneric compile-time-enabled-p (message-level logger)
+  (:method (message-level logger)
+    (require-logger! logger)
+    (>= (ensure-level-value message-level)
+        (or (ensure-level-value (log.compile-time-level logger))
+            +dribble+))))
 
 (defgeneric log.compile-time-level (log)
   (:method ( log )
@@ -355,15 +370,16 @@
     ;; extensions and calls to do-logging behave as expected
     (unless (enabled-p message log) (return-from do-logging))
     ;; if we have any appenders send them the message
+    (setf message (maybe-signal-logging-message log message))
     (dolist (*appender* (appenders log))
       (with-debugging-or-error-printing
           (log :continue "Try next appender")
         (when (enabled-p message *appender*)
-        (append-message
-         *appender*
-         ;; this will possibly change the message
-         (maybe-signal-appending-message
-          log *appender* message)))))
+          (append-message
+           *appender*
+           ;; this will possibly change the message
+           (maybe-signal-appending-message
+            log *appender* message)))))
     (dolist (parent (parents log))
       (with-debugging-or-error-printing
           (log :continue "Try next appender")
