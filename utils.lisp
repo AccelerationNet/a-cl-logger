@@ -5,7 +5,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun %with-macro-splicing (plist forms
-                                         &aux (tbl (alexandria:plist-hash-table plist)))
+                               &aux (tbl (alexandria:plist-hash-table plist)))
     "Double quasi-quoting hurts my head so lets do it a bit different"
     (when forms
       (labels ((find-replacement (in)
@@ -53,12 +53,13 @@
    using name accidentally
   "
   (let* ((macro-name (intern #?"${%name}!")))
-    (splice-in-local-symbol-values
-     (list '%name %name)
-     `(defmacro ,macro-name (&rest places)
-       `(setf ,@(iter (for p in places)
-                  (collect p)
-                  (collect `(%name ,p))))))))
+    (with-macro-splicing (%name macro-name)
+      (defmacro macro-name (&rest places)
+        (let ((@places (iter (for p in places)
+                         (collect p)
+                         (collect `(%name ,p)))))
+          (with-macro-splicing (places)
+            `(setf @places)))))))
 
 (defmacro define-mutator-macros (&rest names)
   "creates many mutator macros for names"
