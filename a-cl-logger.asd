@@ -6,7 +6,7 @@
 (in-package :a-cl-logger.system)
  
 (defsystem :a-cl-logger
-  :description "A library refactoring of arnesi"
+  :description "A logger that sends to multiple destinations in multiple formats. Based on arnesi logger"
   :author "Russ Tyndall <russ@acceleration.net>, Nathan Bird <nathan@acceleration.net>, Ryan Davis <ryan@acceleration.net>"
   :licence "BSD"
   :serial t
@@ -20,7 +20,7 @@
                 :cl-json :closer-mop))
 
 (defsystem :a-cl-logger-tests
-  :description "A library refactoring of arnesi"
+  :description "Tests for: a-cl-logger"
   :author "Russ Tyndall <russ@acceleration.net>, Nathan Bird <nathan@acceleration.net>, Ryan Davis <ryan@acceleration.net>"
   :licence "BSD"
   :serial t

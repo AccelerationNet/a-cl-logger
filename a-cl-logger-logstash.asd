@@ -6,7 +6,7 @@
 (in-package :a-cl-logger.system)
  
 (defsystem :a-cl-logger-logstash
-  :description "A library refactoring of arnesi - this loads the "
+  :description "Load the logstash appender for a-cl-logger"
   :author "Russ Tyndall <russ@acceleration.net>, Nathan Bird <nathan@acceleration.net>, Ryan Davis <ryan@acceleration.net>"
   :licence "BSD"
   :serial t

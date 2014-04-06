@@ -44,7 +44,7 @@
     (zeromq-send-data out :server (log-stash-server appender))))
 
 (defun ensure-node-logstash-appender (logger
-                                      &key log-stash-server
+                                      &key log-stash-server log-stash-type
                                       (type 'node-logstash-appender))
   (require-logger! logger)
   (alexandria:when-let
@@ -55,6 +55,7 @@
                                           log-stash-server))))
     (return-from ensure-node-logstash-appender a))
   (let ((new (make-instance type
+                            :log-stash-type log-stash-type
                             :log-stash-server log-stash-server)))
     (push new (appenders logger))
     new))
