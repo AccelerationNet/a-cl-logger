@@ -74,7 +74,12 @@
             (log-level-name-of message))
     (when (format-control message)
       (if (format-args message)
-          (apply #'format stream (format-control message) (format-args message))
+          (handler-case
+              (apply #'format stream (format-control message) (format-args message))
+            (error ()
+              (write-sequence "ERROR-FORMATTING: " stream)
+              (write-sequence (format-control message) stream)
+              (princ (format-args message) stream)))
           (write-sequence (format-control message) stream)))
     (format stream " ~{~A:~A~^, ~}~%"
             (%filter-plist message)))
