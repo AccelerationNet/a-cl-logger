@@ -80,7 +80,7 @@
                (signal (make-condition 'generating-message :message message)))
              message)
     (change-message (new)
-      :report "Change the message to be logged"
+      :report "Change the message to be created"
       (return-from maybe-signal-generating-message
         new))))
 
@@ -114,7 +114,7 @@
                                     :logger logger :message message :appender appender)))
           message)
       (change-message (new)
-        :report "Change the message to be logged"
+        :report "Change the message to be appended"
         (return-from maybe-signal-appending-message
           new)))))
 
