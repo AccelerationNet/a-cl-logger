@@ -79,7 +79,11 @@
             (error ()
               (write-sequence "ERROR-FORMATTING: " stream)
               (write-sequence (format-control message) stream)
-              (princ (format-args message) stream)))
+              (write-sequence " - Args: " stream)
+              (iter (for arg in (format-args message))
+                (unless (first-iteration-p)
+                  (write-sequence ", " stream))
+                (ignore-errors (princ arg stream)))))
           (write-sequence (format-control message) stream)))
     (format stream " ~{~A:~A~^, ~}~%"
             (%filter-plist message)))
