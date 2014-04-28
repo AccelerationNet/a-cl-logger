@@ -74,16 +74,19 @@
             (log-level-name-of message))
     (when (format-control message)
       (if (format-args message)
-          (handler-case
-              (apply #'format stream (format-control message) (format-args message))
-            (error ()
-              (write-sequence "ERROR-FORMATTING: " stream)
-              (write-sequence (format-control message) stream)
-              (write-sequence " - Args: " stream)
-              (iter (for arg in (format-args message))
-                (unless (first-iteration-p)
-                  (write-sequence ", " stream))
-                (ignore-errors (princ arg stream)))))
+          (restart-case
+              (handler-case
+                  (apply #'format stream (format-control message) (format-args message))
+                (error (c)
+                  (write-sequence "ERROR-FORMATTING: \"" stream)
+                  (write-sequence (format-control message) stream)
+                  (write-char #\" stream)
+                  (iter (for arg in (format-args message))
+                    (write-sequence ", " stream)
+                    (ignore-errors (princ arg stream)))
+                  (when *debugger-hook*
+                    (invoke-debugger c))))
+            (continue () ))
           (write-sequence (format-control message) stream)))
     (format stream " ~{~A:~A~^, ~}~%"
             (%filter-plist message)))

@@ -29,6 +29,12 @@
   (:report (lambda (c s)
              (format s "~&Error: no logger defined named :~S" (name c)))))
 
+(define-condition log-argument-evaluation-error (error)
+  ((form :accessor form :initarg :form :initform nil)
+   (inner-error :accessor inner-error :initarg :inner-error :initform nil))
+  (:report (lambda (c s)
+             (format s "~&Error evaluting log argument: ~s, ~A" (form c) (inner-error c)))))
+
 (defun missing-logger (name)
   (error (make-condition 'missing-logger :name name)))
 
@@ -248,6 +254,25 @@
     (with-macro-splicing (logger-var message-level-name logger-macro-name)
       (defmacro logger-macro-name (&rest @message-args)
         (when (compile-time-enabled-p message-level-name logger-var)
+          (let ((err (gensym "ERR")))
+            (setf @message-args
+                  (iter (for a in @message-args)
+                    (collect
+                        ;; handle arguments such that evaluating a log message
+                        ;; shouldnt result in an error at runtime (even if
+                        ;; that message was disabled at dev time)
+                        (with-macro-splicing (err a)
+                          (let ( err )
+                            (restart-case
+                                (handler-case a
+                                  (error (c)
+                                    (setf err
+                                          (make-instance 'log-argument-evaluation-error
+                                                         :inner-error c
+                                                         :form 'a))
+                                    (when *debugger-hook* (invoke-debugger c))
+                                    err))
+                              (continue () err))))))))
           (with-macro-splicing (@message-args)
             ;; prevents evaluating message-args if we are not enabled
             (when (enabled-p message-level-name logger-var)
