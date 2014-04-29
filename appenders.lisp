@@ -84,8 +84,7 @@
                   (iter (for arg in (format-args message))
                     (write-sequence ", " stream)
                     (ignore-errors (princ arg stream)))
-                  (when *debugger-hook*
-                    (invoke-debugger c))))
+                  (when *debugger-hook* (invoke-debugger c))))
             (continue () ))
           (write-sequence (format-control message) stream)))
     (format stream " ~{~A:~A~^, ~}~%"
@@ -129,7 +128,6 @@
                      by #'cddr)
             (as-json-o-val k v)))))))
 
-
 (defmacro with-stream-restarts ((s recall) &body body)
   `(restart-case
     (progn ,@body)
@@ -142,7 +140,7 @@
      (setf (log-stream ,s) *standard-output*)
      ,recall)
     (silence-logger ()
-     :report "Ignore all future messages to this logger."
+     :report "Ignore all future messages to this appender."
      (setf (log-stream ,s) (make-broadcast-stream)))))
 
 (defmethod append-message ((s stream-log-appender) message)
