@@ -6,7 +6,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun %with-macro-splicing (plist forms
                                &aux (tbl (alexandria:plist-hash-table plist)))
-    "Double quasi-quoting hurts my head so lets do it a bit different"
+    "Processor for forms using with-macro-splicing"
     (when forms
       (labels ((find-replacement (in)
                  (gethash in tbl))
@@ -25,6 +25,22 @@
         (rec forms))))
 
   (defmacro with-macro-splicing ((&rest names) &body forms)
+    "Double quasi-quoting hurts my head so lets do it a bit different
+
+     Instead lets replace symbols in the expansion with values named by the
+     same symbols in the expansion environment.
+
+     Obviously care needs to be taken when processing forms passed by the
+     user, but that is the name of the macro game.
+
+     Variables starting with an @ (such as @body) are spliced as with
+     `(progn ,@)
+   
+     eg:
+     (let ((a 1))
+       (with-macro-splicing (a) (+ a 2)))
+     => (+ 1 2)
+    "
     `(%with-macro-splicing
       (list ,@(iter (for n in names)
                 (appending `(',n ,n))))
