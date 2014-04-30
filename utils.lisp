@@ -59,7 +59,7 @@
      (subseq n 1 (- l 1))
      (symbol-package symbol))))
 
-(defmacro define-mutator-macro (%name)
+(defmacro define-mutator-macros (&rest names)
   "defines mutator macros for a function name
     eg: ensure-account-id =>
       (defmacro ensure-account-id! (&rest places) ... )
@@ -67,21 +67,39 @@
 
    %name is just so we dont accidentally run into someone
    using name accidentally
-  "
-  (let* ((macro-name (intern #?"${%name}!")))
-    (with-macro-splicing (%name macro-name)
-      (defmacro macro-name (&rest places)
-        (let ((@places (iter (for p in places)
-                         (collect p)
-                         (collect `(%name ,p)))))
-          (with-macro-splicing (places)
-            `(setf @places)))))))
-
-(defmacro define-mutator-macros (&rest names)
-  "creates many mutator macros for names"
+  "  
   `(progn
-    ,@(iter (for n in names)
-        (collect `(define-mutator-macro ,n)))))
+    ,@(loop for %name in names
+            for macro-name = (intern #?"${%name}!")
+            collect                 
+               (with-macro-splicing (%name macro-name)
+                 (defmacro macro-name (&rest places)
+                   (let ((@places (loop for p in places
+                                        collect p
+                                        collect `(%name ,p))))
+                     (with-macro-splicing (@places)
+                       (setf @places))))))))
+#|
+(defmacro define-mutator-macros (&rest names)
+  "defines mutator macros for a function name
+    eg: ensure-account-id =>
+      (defmacro ensure-account-id! (&rest places) ... )
+      which (setf place (name place) for each place)
+
+   %name is just so we dont accidentally run into someone
+   using name accidentally
+  "  
+  `(progn
+    ,@(loop for %name in names
+            for macro-name = (intern #?"${%name}!")
+            for setf-form = ``(,',%name ,p)
+            collect                             
+               `(defmacro ,macro-name (&rest places)
+                 (let ((setf-places (loop for p in places
+                                          collect p
+                                          collect ,setf-form)))
+                   `(setf ,@setf-places))))))
+|#
 
 (defmacro maybe-with-presentations
     ((output-stream var &rest stream-properties) &body body)

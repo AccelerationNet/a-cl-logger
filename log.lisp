@@ -248,19 +248,18 @@
   ;; handle arguments such that evaluating a log message
   ;; shouldnt result in an error at runtime (even if
   ;; that message was disabled at dev time)
-  (let ((err (gensym "ERR")))
-    (with-macro-splicing (err form)
-      (let ( err )
-        (restart-case
-            (handler-case form
-              (error (c)
-                (setf err
-                      (make-instance 'log-argument-evaluation-error
-                                     :inner-error c
-                                     :form 'form))
-                (when *debugger-hook* (invoke-debugger c))
-                err))
-          (continue () err))))))
+  (alexandria:with-unique-names (err)
+    `(let ( ,err )
+      (restart-case
+          (handler-case ,form
+            (error (c)
+              (setf ,err
+                    (make-instance 'log-argument-evaluation-error
+                                   :inner-error c
+                                   :form ',form))
+              (when *debugger-hook* (invoke-debugger c))
+              ,err))
+        (continue () ,err)))))
 
 (defun %make-log-helper (logger message-level-name)
   "Creates macros like logger.debug to facilitate logging"
