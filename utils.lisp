@@ -4,25 +4,36 @@
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun %with-macro-splicing (plist forms
-                               &aux (tbl (alexandria:plist-hash-table plist)))
-    "Processor for forms using with-macro-splicing"
-    (when forms
-      (labels ((find-replacement (in)
-                 (gethash in tbl))
-               (rec (forms)
-                 (iter (for form in forms)
-                   (typecase form
-                     (list (collect (rec form)))
-                     (symbol
-                      (let* ((list-splice? (char-equal #\@ (char (string form) 0))))
-                        (alexandria:if-let (rep (find-replacement form))
-                          (if list-splice?
-                              (appending rep)
-                              (collect rep))
-                          (collect form))))
-                     (t (collect form))))))
-        (rec forms))))
+  (defun replace-symbols-in-forms
+      (plist forms
+       &aux (tbl (alexandria:plist-hash-table plist)))
+    " Processor for forms using with-macro-splicing "
+    (labels ((find-replacement (in &aux (out (gethash in tbl)))
+               (typecase out
+                 (null)
+                 (list (copy-list out))
+                 (t out)))
+             (rec (form)       
+               (typecase form
+                 (null)
+                 (list
+                  (let* ((rtn (cons nil nil)))
+                    ;; do head
+                    (multiple-value-bind (v splice?)
+                        (rec (car form))
+                      (if splice?
+                          (setf rtn v)
+                          (setf (car rtn) v)))
+                    ;; do tail
+                    (setf (cdr (last rtn)) (rec (cdr form)))
+                    rtn))
+                 (symbol
+                  (let* ((list-splice? (char-equal #\@ (char (string form) 0))))
+                    (alexandria:if-let (rep (find-replacement form))
+                      (values rep list-splice?)
+                      form)))
+                 (t form))))
+      (rec forms)))
 
   (defmacro with-macro-splicing ((&rest names) &body forms)
     "Double quasi-quoting hurts my head so lets do it a bit different
@@ -35,21 +46,27 @@
 
      Variables starting with an @ (such as @body) are spliced as with
      `(progn ,@)
+
+     In the interest of enhanced readability it is suggested that all template
+     variables start with $ or @ so that they stand out
    
      eg:
-     (let ((a 1))
-       (with-macro-splicing (a) (+ a 2)))
-     => (+ 1 2)
+     (let ((@b '(2 3))) (with-macro-splicing (($a 1) @b) (+ $a @b 4)))
+     => (+ 1 2 3 4)
     "
-    `(%with-macro-splicing
+    `(replace-symbols-in-forms
       (list ,@(iter (for n in names)
-                (appending `(',n ,n))))
+                (typecase n
+                  (null)
+                  (atom (appending `(',n ,n)))
+                  (list (appending `(',(first n) ,(second n)))))
+                ))
       ',@forms))
 
-  (defmacro with-spliced-unique-name ((&rest names) &body body)
-  `(alexandria:with-unique-names (,@names)
-    (with-macro-splicing (,@names)
-     ,@body))))
+  (defmacro with-auto-unique-names ((&rest names) &body body)
+    `(alexandria:with-unique-names (,@names)
+      (with-macro-splicing (,@names)
+        ,@body))))
 
 (defun without-earmuffs (symbol)
   (check-type symbol symbol)
@@ -69,37 +86,16 @@
    using name accidentally
   "  
   `(progn
-    ,@(loop for %name in names
-            for macro-name = (intern #?"${%name}!")
+    ,@(loop for $name in names
+            for $macro-name = (intern #?"${$name}!")
             collect                 
-               (with-macro-splicing (%name macro-name)
-                 (defmacro macro-name (&rest places)
+               (with-macro-splicing ($name $macro-name)
+                 (defmacro $macro-name (&rest places)
                    (let ((@places (loop for p in places
                                         collect p
-                                        collect `(%name ,p))))
+                                        collect `($name ,p))))
                      (with-macro-splicing (@places)
                        (setf @places))))))))
-#|
-(defmacro define-mutator-macros (&rest names)
-  "defines mutator macros for a function name
-    eg: ensure-account-id =>
-      (defmacro ensure-account-id! (&rest places) ... )
-      which (setf place (name place) for each place)
-
-   %name is just so we dont accidentally run into someone
-   using name accidentally
-  "  
-  `(progn
-    ,@(loop for %name in names
-            for macro-name = (intern #?"${%name}!")
-            for setf-form = ``(,',%name ,p)
-            collect                             
-               `(defmacro ,macro-name (&rest places)
-                 (let ((setf-places (loop for p in places
-                                          collect p
-                                          collect ,setf-form)))
-                   `(setf ,@setf-places))))))
-|#
 
 (defmacro maybe-with-presentations
     ((output-stream var &rest stream-properties) &body body)

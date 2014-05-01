@@ -262,26 +262,27 @@
         (continue () ,err)))))
 
 (defun %make-log-helper (logger message-level-name)
-  "Creates macros like logger.debug to facilitate logging"
-  (let* ((logger-var (get-logger-var-name logger))
-         (logger-macro-name
-           (symbol-munger:reintern
-            #?"${logger}.${ (without-earmuffs message-level-name) }"
-            (symbol-package logger))))
-    (with-macro-splicing (logger-var message-level-name logger-macro-name)
-      (defmacro logger-macro-name (&rest @message-args)
-        (when (compile-time-enabled-p message-level-name logger-var)
-          (let ((@safe-message-args
-                  (iter (for a in @message-args)
-                    (collect (%safe-log-helper-arg a)))))
-            (with-macro-splicing (@message-args @safe-message-args)
-              ;; prevents evaluating message-args if we are not enabled
-              (when (enabled-p message-level-name logger-var)
-                (do-logging logger-var 
-                  (make-message
-                   logger-var message-level-name
-                   (list @safe-message-args)
-                   :arg-literals '(@message-args)))))))))))
+  "Creates macros like logger.debug to facilitate logging"  
+  (with-macro-splicing
+      (($logger-var (get-logger-var-name logger))
+       ($message-level-name message-level-name)
+       ($logger-macro-name
+        (symbol-munger:reintern
+         #?"${logger}.${ (without-earmuffs message-level-name) }"
+         (symbol-package logger))))
+    (defmacro logger-macro-name (&rest @message-args)
+      (when (compile-time-enabled-p $message-level-name $logger-var)
+        (let ((@safe-message-args
+                (iter (for a in @message-args)
+                  (collect (%safe-log-helper-arg a)))))
+          (with-macro-splicing (@message-args @safe-message-args)
+            ;; prevents evaluating message-args if we are not enabled
+            (when (enabled-p $message-level-name $logger-var)
+              (do-logging $logger-var 
+                (make-message
+                 $logger-var $message-level-name
+                 (list @safe-message-args)
+                 :arg-literals '(@message-args))))))))))
 
 (defmacro define-log-helpers (logger-name)
   `(progn
