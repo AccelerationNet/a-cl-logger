@@ -270,7 +270,7 @@
         (symbol-munger:reintern
          #?"${logger}.${ (without-earmuffs message-level-name) }"
          (symbol-package logger))))
-    (defmacro logger-macro-name (&rest @message-args)
+    (defmacro $logger-macro-name (&rest @message-args)
       (when (compile-time-enabled-p $message-level-name $logger-var)
         (let ((@safe-message-args
                 (iter (for a in @message-args)
