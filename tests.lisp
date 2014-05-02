@@ -21,3 +21,16 @@
           (lisp-unit2:assert-no-signal
            'logging-message
            (do-log *testlog* message-level "Test ~A" level-name))))))
+
+(lisp-unit2:define-test helper-tests ()
+  (setf (level *testlog*) +dribble+)
+  (lisp-unit2:assert-signal
+     'logging-message
+     (handler-bind ((logging-message
+                      (lambda (c) (lisp-unit2:assert-equal +error+ (level (message c))))))
+       (testlog.error "Test ~A" :some-stuff)))  
+    (lisp-unit2:assert-signal
+     'logging-message
+     (handler-bind ((logging-message
+                      (lambda (c) (lisp-unit2:assert-equal +debug+ (level (message c))))))
+       (testlog.debug "Test ~A" :some-stuff))))
