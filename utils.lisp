@@ -17,13 +17,11 @@
                (typecase form
                  (null)
                  (list
-                  (let* ((rtn (cons nil nil)))
+                  (let* (rtn)
                     ;; do head
                     (multiple-value-bind (v splice?)
                         (rec (car form))
-                      (if splice?
-                          (setf rtn v)
-                          (setf (car rtn) v)))
+                      (setf rtn (if splice? v (cons v nil))))
                     ;; do tail
                     (setf (cdr (last rtn)) (rec (cdr form)))
                     rtn))
