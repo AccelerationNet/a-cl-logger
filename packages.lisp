@@ -33,6 +33,8 @@
            #:ensure-stderr-appender
            #:ensure-file-appender
            #:ensure-debug-io-appender
+           #:find-appender
+           #:debug-io-log-appender
            #:remove-appender
            #:make-log-path
 
