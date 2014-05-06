@@ -14,7 +14,9 @@
            #:do-logging
            #:format-message
            #:append-message
-           
+
+           #:root-logger
+           #:*root-logger*
            #:define-logger
            #:logger
            #:log-level
@@ -23,7 +25,7 @@
            #:parents
            #:level
            #:children
-           
+
            #:appender
            #:stream-log-appender
            #:stderr-log-appender
@@ -31,6 +33,7 @@
            #:ensure-stderr-appender
            #:ensure-file-appender
            #:ensure-debug-io-appender
+           #:remove-appender
            #:make-log-path
 
            #:formatter

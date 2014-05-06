@@ -3,6 +3,8 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
+(defvar *root-logger* nil
+  "By default all loggers have the *root-logger* as a parent")
 (defvar *logger-vars* ())
 (defvar *message* nil)
 (defvar *appender* nil)
@@ -213,10 +215,20 @@
 	    (level log))))
 
 (defmethod initialize-instance :after ((log logger) &key &allow-other-keys)
+  ;; TODO: Do we want this error here, or should we allow names such that defining is easier
   (setf (parents log) (mapcar #'require-logger (ensure-list (parents log))))
+
   (ensure-list! (appenders log))
+  ;; everybody with no parents who are not the root loger is automatically a
+  ;; child of the root logger
+  (unless (or (eql 'root-logger (name log))
+              (parents log))
+    (pushnew *root-logger* (parents log)))
+
   (dolist (anc (parents log))
     (pushnew log (children anc) :key #'name))
+
+  ;; this should mostly apply to the *root-logger* now
   (unless (or (appenders log) (parents log))
     (ensure-debug-io-appender log)))
 
@@ -289,6 +301,7 @@
     ,@(iter (for (level-name level-value-name) in-vector *log-level-names*)
         (collect (%make-log-helper logger-name level-value-name)))))
 
+
 (defmacro define-logger
     (name parents &key compile-time-level level appenders documentation force?
           &aux
@@ -297,12 +310,12 @@
   (declare (ignore documentation) (type symbol name))
   `(progn
     (,var-type ,var
-      (make-instance 'logger
-                     :name ',name
-                     :level ,(or level (and (not parents) +debug+))
-                     :compile-time-level ,compile-time-level
-                     :appenders ,appenders
-                     :parents (copy-list ',parents)))
+     (make-instance 'logger
+      :name ',name
+      :level ,(or level (and (not parents) +debug+))
+      :compile-time-level ,compile-time-level
+      :appenders ,appenders
+      :parents (copy-list ',parents)))
     (pushnew ',var *logger-vars*)
     (define-log-helpers ,name)
     ,(get-logger-var-name name)))

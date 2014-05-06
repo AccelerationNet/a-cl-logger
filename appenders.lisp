@@ -223,18 +223,31 @@
     (push new (appenders logger))
     new))
 
-(defun find-appender (logger &key type predicate)
+(defun find-appender (logger &key type predicate (recurse? t))
   (require-logger! logger)
   (iter (for a in (appenders logger))
     (when (and (or (null type) (typep a type))
                (or (null predicate)
                    (funcall predicate a)))
       (return-from find-appender a)))
-  (iter
-    (for p in (parents logger))
-    (for a = 
-         (find-appender p
-                        :type type
-                        :predicate predicate))
-    (when a (return-from find-appender a))))
+  (when recurse?
+    (iter
+      (for p in (parents logger))
+      (for a =
+           (find-appender p
+                          :type type
+                          :predicate predicate))
+      (when a (return-from find-appender a)))))
+
+(defun remove-appender (logger &key type predicate path (recurse? nil))
+  (require-logger! logger)
+  (let ((a (find-appender
+            logger
+            :type type
+            :recurse? recurse?
+            :predicate (or predicate
+                           (when path (lambda (a) (equal (log-file a) path)))))))
+    (when a
+      (setf (appenders logger)
+            (remove a (appenders logger))))))
 

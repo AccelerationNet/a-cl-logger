@@ -1,6 +1,12 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
+;; Make sure we have a root logger after the whole logging framework is created.
+;; the force/unless is needed because we needed to reference the var before define-logger :/
+(unless *root-logger*
+  (define-logger root-logger ()
+    :force? t))
+
 (defun get-log-fn (logger &key (level +debug+))
   "Given a logger identifier name like 'adwolf-log.debug or 'adwolf-log find the logger
    associated with it and build a (lambda (message &rest args)) that can be
