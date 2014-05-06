@@ -183,9 +183,12 @@ done."
   `(with-simple-restart (continue ,continue)
     (handler-bind
         ((error (lambda (c)
-                  (ignore-errors
-                   (format *error-output* "Error in logger ~A:~%~A~%~S"
-                           ,logger c c))
+                  (or
+                   (ignore-errors
+                    (root-logger.error "Error in logger ~A:~%~A~%~S" ,logger c c))
+                   (ignore-errors
+                    (format *error-output* "Error in logger ~A:~%~A~%~S"
+                            ,logger c c)))
                   (when *debugger-hook*
                     (invoke-debugger c))
                   (continue c)))))
