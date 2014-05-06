@@ -95,7 +95,7 @@
 
 (defun logger-signal-handlers (logger condition)
   (loop for (typename fn) in (default-signal-bindings logger)
-        when (typep (type-of condition) typename)
+        when (typep condition typename)
         do (with-change-message ((message condition))
              (funcall fn condition)))
   (loop for p in (parents logger)

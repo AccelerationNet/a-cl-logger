@@ -87,6 +87,8 @@
     (ensure-file-appender logger :directory log-root :name file-name :buffer-p buffer-p))
   (when level (setf (log-level logger) level)))
 
+(defun push-into-message (&rest plist)
+  (push-m-plist plist *message*))
 
 
 (defmacro when-log-message-generated ((&body handler-body)
@@ -106,7 +108,7 @@
   "
   `(handler-bind
     ((generating-message
-      (lambda (c)                  
+      (lambda (c)
         (flet ((push-into-message (&rest plist)
                  (push-m-plist plist (message c))))
           ,@handler-body))))

@@ -60,5 +60,9 @@
            #:when-log-message-generated
            #:when-log-message-appended
            #:push-into-message
+           #:default-signal-bindings
+           #:generating-message
+           #:appending-message
+           #:logging-message
            ))
 
