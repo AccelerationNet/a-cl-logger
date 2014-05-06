@@ -3,29 +3,6 @@
 (in-package :a-cl-logger)
 (cl-interpol:enable-interpol-syntax)
 
-(defvar *root-logger* nil
-  "By default all loggers have the *root-logger* as a parent")
-(defvar *logger-vars* ())
-(defvar *message* nil)
-(defvar *appender* nil)
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter +dribble+ 0)
-  (defparameter +debug+   1)
-  (defparameter +info+    2)
-  (defparameter +warn+    3)
-  (defparameter +error+   4)
-  (defparameter +fatal+   5)
-  (defparameter *max-logger-name-length* 12)
-
-  (defparameter *log-level-names*
-    #((dribble +dribble+ 0)
-      (debug +debug+ 1)
-      (info +info+ 2)
-      (warn +warn+ 3)
-      (error +error+ 4)
-      (fatal +fatal+ 5))))
-
 (define-condition missing-logger (error)
   ((name :accessor name :initarg :name :initform nil))
   (:report (lambda (c s)
