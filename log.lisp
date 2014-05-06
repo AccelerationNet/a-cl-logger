@@ -337,10 +337,6 @@
   (:documentation
    "Change the logger's level of to NEW-LEVEL. If RECUSIVE is T the
   setting is also applied to the sub logger of logger.")
-  (:method (new-level (appender appender) &optional (recursive nil))
-    (declare (ignore recursive))
-    (ensure-level-value! new-level)
-    (setf (slot-value appender 'level) new-level))
   (:method (new-level log &optional (recursive t))
     ;; could be an appender, logger or logger-name
     (require-logger! log)

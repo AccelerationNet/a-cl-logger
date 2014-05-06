@@ -53,6 +53,11 @@
   (:documentation
    "The method responsible for actually putting the logged information somewhere"))
 
+(defmethod (setf log-level) (new-level (appender appender) &optional (recursive nil))
+    (declare (ignore recursive))
+    (ensure-level-value! new-level)
+    (setf (slot-value appender 'level) new-level))
+
 (defun %filter-plist (msg &optional exclude)
   (iter
     (with ex = exclude)
