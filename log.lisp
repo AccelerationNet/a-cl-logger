@@ -54,7 +54,7 @@
     (null nil)
     (keyword nil) ;; loggers have to have non-keyword names
     (symbol
-     (ensure-type 
+     (ensure-type
       (or (handler-case (symbol-value (get-logger-var-name name))
             (unbound-variable (c) (declare (ignore c))))
           (destructuring-bind (name &optional level)
@@ -82,31 +82,49 @@
 (define-condition generating-message ()
   ((message :accessor message :initarg :message :initform nil)))
 
-(defun maybe-signal-generating-message (message &aux (*message* message))
-  (restart-case
-      (progn (when (signal-messages (logger message))
-               (signal (make-condition 'generating-message :message message)))
-             message)
-    (change-message (new)
-      :report "Change the message to be created"
-      (return-from maybe-signal-generating-message
-        new))))
+(defmacro with-change-message ((message-place) &body body)
+  `(progn
+    (restart-bind
+        ((change-message
+           (lambda (new) (setf ,message-place new))
+           :report-function (lambda (stream)
+                              (write-string "Change the message to be created" stream))
+           ))
+      ,@body)
+    ,message-place))
+
+(defun logger-signal-handlers (logger condition)
+  (loop for (typename fn) in (default-signal-bindings logger)
+        when (typep (type-of condition) typename)
+        do (with-change-message ((message condition))
+             (funcall fn condition)))
+  (loop for p in (parents logger)
+        do (logger-signal-handlers p condition)))
+
+
+(defun maybe-signal-message (c message &aux (*message* message)
+                                       (logger (logger message)))
+  (when (signal-messages logger)
+    ;; we change the one on the condition that is passing through all the handlers
+    (with-change-message ((message c)) (signal c))
+    (logger-signal-handlers logger c)
+    ;; make sure that all changed messages are visible
+    (setf message (message c)))
+  message)
+
+(defun maybe-signal-generating-message (message)
+  (maybe-signal-message
+   (make-condition 'generating-message :message message)
+   message))
 
 (define-condition logging-message ()
   ((message :accessor message :initarg :message :initform nil)
    (logger :accessor logger :initarg :logger :initform nil)))
 
-(defun maybe-signal-logging-message (logger message &aux (*message* message))
-  (let ((*message* message ))
-    (restart-case
-        (progn (when (signal-messages logger)
-                 (signal (make-condition 'logging-message :message message
-                                                          :logger logger)))
-               message)
-      (change-message (new)
-        :report "Change the message to be logged"
-        (return-from maybe-signal-logging-message
-          new)))))
+(defun maybe-signal-logging-message (logger message)
+  (maybe-signal-message
+   (make-condition 'logging-message :message message :logger logger)
+   message))
 
 (define-condition appending-message ()
   ((message :accessor message :initarg :message :initform nil)
@@ -114,17 +132,11 @@
    (appender :accessor appender :initarg :appender :initform nil)))
 
 (defun maybe-signal-appending-message (logger appender message)
-  (let ((*message* message ))
-    (restart-case
-        (progn
-          (when (signal-messages logger)
-            (signal (make-condition 'appending-message
-                                    :logger logger :message message :appender appender)))
-          message)
-      (change-message (new)
-        :report "Change the message to be appended"
-        (return-from maybe-signal-appending-message
-          new)))))
+  (maybe-signal-message
+   (make-condition
+    'appending-message
+    :logger logger :message message :appender appender)
+   message))
 
 (defclass message ()
   ((name :accessor name :initarg :name :initform nil)
@@ -149,7 +161,12 @@
 
 (defclass logger ()
   ((name :initarg :name :accessor name :initform nil)
-   (signal-messages :accessor signal-messages :initarg :signal-messages :initform t)
+   (signal-messages
+    :accessor signal-messages :initarg :signal-messages
+    :initform t)
+   (default-signal-bindings
+    :accessor default-signal-bindings
+    :initarg :default-signal-bindings :initform nil)
    (parents
     :initform '()     :accessor parents :initarg :parents
     :documentation "The logger this logger inherits from.")
