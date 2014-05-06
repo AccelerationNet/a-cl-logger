@@ -109,9 +109,10 @@
   `(handler-bind
     ((generating-message
       (lambda (c)
-        (flet ((push-into-message (&rest plist)
-                 (push-m-plist plist (message c))))
-          ,@handler-body))))
+        (with-debugging-or-error-printing ((logger (message c)))
+          (flet ((push-into-message (&rest plist)
+                   (push-m-plist plist (message c))))
+            ,@handler-body)))))
     ,@body))
 
 (defmacro when-log-message-appended ((&body handler-body)
@@ -131,7 +132,8 @@
   `(handler-bind
     ((appending-message
       (lambda (c)
-        (flet ((push-into-message (&rest plist)
-                 (push-m-plist plist (message c))))
-          ,@handler-body))))
+        (with-debugging-or-error-printing ((logger (message c)))
+          (flet ((push-into-message (&rest plist)
+                   (push-m-plist plist (message c))))
+            ,@handler-body)))))
     ,@body))

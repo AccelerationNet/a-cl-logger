@@ -300,18 +300,20 @@
          #?"${logger}.${ (without-earmuffs message-level-name) }"
          (symbol-package logger))))
     (defmacro $logger-macro-name (&rest @message-args)
-      (when (compile-time-enabled-p $message-level-name $logger-var)
-        (let ((@safe-message-args
-                (iter (for a in @message-args)
-                  (collect (%safe-log-helper-arg a)))))
-          (with-macro-splicing (@message-args @safe-message-args)
-            ;; prevents evaluating message-args if we are not enabled
-            (when (enabled-p $message-level-name $logger-var)
-              (do-logging $logger-var 
-                (make-message
-                 $logger-var $message-level-name
-                 (list @safe-message-args)
-                 :arg-literals '(@message-args))))))))))
+      (with-debugging-or-error-printing ($logger-var)
+        (when (compile-time-enabled-p $message-level-name $logger-var)
+          (let ((@safe-message-args
+                  (iter (for a in @message-args)
+                    (collect (%safe-log-helper-arg a)))))
+            (with-macro-splicing (@message-args @safe-message-args)
+              ;; prevents evaluating message-args if we are not enabled
+              (with-debugging-or-error-printing ($logger-var)
+                (when (enabled-p $message-level-name $logger-var)
+                  (do-logging $logger-var 
+                    (make-message
+                     $logger-var $message-level-name
+                     (list @safe-message-args)
+                     :arg-literals '(@message-args))))))))))))
 
 (defmacro define-log-helpers (logger-name)
   `(progn
