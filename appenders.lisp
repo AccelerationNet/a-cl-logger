@@ -234,7 +234,7 @@
     (when (and (or (null type) (typep a type))
                (or (null predicate)
                    (funcall predicate a)))
-      (return-from find-appender a)))
+      (return-from find-appender (values a logger))))
   (when recurse?
     (iter
       (for p in (parents logger))
@@ -242,17 +242,18 @@
            (find-appender p
                           :type type
                           :predicate predicate))
-      (when a (return-from find-appender a)))))
+      (when a (return-from find-appender (values a p))))))
 
 (defun remove-appender (logger &key type predicate path (recurse? nil))
-  (require-logger! logger)
-  (let ((a (find-appender
-            logger
-            :type type
-            :recurse? recurse?
-            :predicate (or predicate
-                           (when path (lambda (a) (equal (log-file a) path)))))))
-    (when a
-      (setf (appenders logger)
-            (remove a (appenders logger))))))
+  (multiple-value-bind (appender appender-logger)
+      (find-appender
+       logger
+       :type type
+       :recurse? recurse?
+       :predicate (or predicate
+                      (when path (lambda (a) (equal (log-file a) path)))))
+    (when appender
+      (setf (appenders appender-logger)
+            (remove appender (appenders appender-logger))))
+    (values appender appender-logger)))
 
