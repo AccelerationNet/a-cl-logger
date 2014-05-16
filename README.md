@@ -2,6 +2,15 @@
 
 A library that separates, extends and refactors the arnesi logger.
 
+### Quickstart
+
+```
+(a-cl-logger:define-logger testlog ())
+(defun do-something(x)
+  (testlog.debug "starting to do something to ~a" x)
+  (testlog.info "did something to ~a" x))
+```
+
 ### Description and Glossary 
 
 A Logger is a mechanism for generating a text message and have that
