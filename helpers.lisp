@@ -27,10 +27,11 @@
            (,app ,appender))
       (unwind-protect
            (progn
-             (push ,appender (appenders ,log))
+             (push ,app (appenders ,log))
              ,@body)
-        (setf (appenders ,log)
-              (remove ,app (appenders ,log)))))))
+        (progn
+          (setf (appenders ,log)
+                (remove ,app (appenders ,log))))))))
 
 (defun open-message-block (message)
   (when (format-control message)
