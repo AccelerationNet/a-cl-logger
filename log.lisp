@@ -433,7 +433,6 @@
     ;; extensions and calls to do-logging behave as expected
     (unless (enabled-p message log) (return-from do-logging))
     ;; if we have any appenders send them the message
-    (adwutils:spy-break :dologging log message )
     (setf message (maybe-signal-logging-message log message))
     (dolist (appender (appenders log))
       (do-append log appender message))
