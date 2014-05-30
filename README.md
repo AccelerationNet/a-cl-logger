@@ -1,6 +1,22 @@
 ## a-cl-logger
 
-A library that separates, extends and refactors the arnesi logger.
+A common lisp logging library providing context sensitive logging of
+more than just strings to more than just local files / output streams
+
+This started as a significant refactor arnesi logging and the many
+chunks of surrounding code.
+
+### Goals
+
+ * node-logstash integration
+ * Swank presentations integration (objects are printed to the REPL as
+   an inspectable presentation (C-c M-p)
+ * Support logging of more than just strings, eg: json
+ * Context sensitive logging (easily use the dynamic context to add to 
+   the data being logged)
+ * Gracefully handle slime/swank reconnects
+ * Errors in logging shouldnt cause application errors, but should
+   still be debuggable
 
 ### Quickstart
 
@@ -26,15 +42,6 @@ Each logger has a level which is used to determine whether are particular
 message should be processed or not. Loggers inherit their log level from
 their parents. If a logger has multiple direct parents its log level is
 the min of the levels of its parents.
-
-### Goals
-
- * node-logstash integration
- * Swank presentations integration (objects are printed to the REPL as
-   an inspectable presentation (C-c M-p)
- * Support logging of more than just strings, eg: json
- * Context sensitive logging (easily use the dynamic context to add to 
-   the data being logged)
 
 ### Glossary
 
