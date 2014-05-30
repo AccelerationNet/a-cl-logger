@@ -103,6 +103,13 @@ for libraries that supply functional logging hooks
 (get-log-fn *testlog* :level +info+) => (lambda (&rest args) ...)
 ```
 
+### Root Logger
+
+There is a root logger which all other loggers have as a parent by
+default.  This is a conveneint place to put appenders that should
+always apply.  You can remove the root by removing it from the parents
+slot of a logger.
+
 ### Changing / Adding to the messages being logged
 
 Messages generate signals on being created and on being appended.
@@ -118,8 +125,28 @@ to will be a copy of the original (see copy-message).
 
 Each of these signals are wrapped in a `change-message` restart that
 can be used to modify the message for the remainder of the operation.
-(IE: a specific appender will operate on a new copy of the message with
-different, supplemental data).
+(IE: a specific appender will operate on a new copy of the message
+with different, supplemental data).
+
+### Helper Functions
+
+ * `get-log-fn`: given a logger and an optional level create a function
+   of &rest args that logs to the given logger. Useful for interacting
+   with libraries providing functional logging hooks
+ 
+ * `with-appender`: create a dynamic scope inside which messages to
+   logger will additionally be appended to this appender
+
+ * `when-log-message-generated/logged/appended`: These are macros that
+   establish a dynamic context inside of which log messages will be
+   intercepted at key points in their life cycle.  The first body is 
+   the message handler and the second is the scope.
+ 
+ * `setup-logger`: a function that will ensure log-level and standard
+   debug-io-appender / file-appenders are in place.  Useful when debug
+   IO become rebound etc (slime session resets).  Probably not as
+   useful now that there is a root logger and we dont have to constantly 
+   attach the same appenders everywhere
 
 ### Gotchas
 
@@ -135,3 +162,4 @@ different, supplemental data).
  * File streams ensure the file is open to write to
  * Failing to write to one appender / logger doesnt prevent the rest
    from working
+

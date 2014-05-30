@@ -14,6 +14,7 @@
            #:do-logging
            #:format-message
            #:append-message
+           #:make-message
 
            #:root-logger
            #:*root-logger*

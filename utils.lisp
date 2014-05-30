@@ -6,6 +6,7 @@
 (defvar *logger-vars* ())
 (defvar *message* nil)
 (defvar *appender* nil)
+(defvar *logger* nil)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter +dribble+ 0)

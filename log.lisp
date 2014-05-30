@@ -400,16 +400,32 @@
   (require-logger! log)
   (do-logging log (make-message log level args)))
 
+(defgeneric do-append (logger appender message)
+  (:method :around (log appender message)
+    (declare (ignore message))
+    (let ((*appender* appender))
+      (with-debugging-or-error-printing
+          (log :continue "Try next appender")
+        (call-next-method))))
+  (:method (log appender message)    
+    (when (enabled-p message appender)
+      (append-message
+       appender
+       ;; this will possibly change the message
+       (maybe-signal-appending-message
+        log appender message)))))
+
 (defgeneric do-logging (logger message)
   (:documentation
-   "Applys a message to 
+   "Applys a message to the loggers appenders
    Message is either a string or a list. When it's a list and the first
     element is a string then it's processed as args to
     cl:format."  )
   (:method :around ( logger message)
     (declare (ignore logger message))
     ;; turn off line wrapping for the entire time while inside the loggers
-    (with-logging-io () (call-next-method)))
+    (let ((*logger* logger))
+      (with-logging-io () (call-next-method))))
   (:method ( log (message message))
     (require-logger! log)
     ;; this is probably a duplicate check, because our helper macros check
@@ -417,16 +433,10 @@
     ;; extensions and calls to do-logging behave as expected
     (unless (enabled-p message log) (return-from do-logging))
     ;; if we have any appenders send them the message
+    (adwutils:spy-break :dologging log message )
     (setf message (maybe-signal-logging-message log message))
-    (dolist (*appender* (appenders log))
-      (with-debugging-or-error-printing
-          (log :continue "Try next appender")
-        (when (enabled-p message *appender*)
-          (append-message
-           *appender*
-           ;; this will possibly change the message
-           (maybe-signal-appending-message
-            log *appender* message)))))
+    (dolist (appender (appenders log))
+      (do-append log appender message))
     (dolist (parent (parents log))
       (with-debugging-or-error-printing
           (log :continue "Try next appender")
