@@ -7,6 +7,10 @@
   ()
   (:documentation "The base class of all message formatters"))
 
+(defclass raw-formatter (formatter)
+  ()
+  (:documentation "format the message with no annotations"))
+
 (defclass json-formatter (formatter)
   ()
   (:documentation "The base class of all message formatters"))
@@ -28,6 +32,14 @@
    (date-format :initarg :date-format :initform :time
     :documentation "Format to print dates. Format can be one of: (:iso :stamp :time)"))
   (:documentation "Human readable to the console logger."))
+
+(defclass string-stream-appender (stream-log-appender)
+  ()
+  (:documentation "a log that appends all messages into a string stream"))
+
+(defmethod initialize-instance :after ((a string-stream-appender) &key &allow-other-keys)
+  (setf (formatter a) (make-instance 'raw-formatter)        
+        (log-stream a) (make-string-output-stream)))
 
 (defclass stderr-log-appender (stream-log-appender)
   ()
@@ -71,12 +83,13 @@
 (defgeneric format-message
     (appender formatter message stream)
   (:method ((appender appender) formatter (message message) stream)
-    (format stream "~A ~A ~7A "
-            (timestamp message)
-            (%logger-name-for-output
-             (or (name message)
-                 (logger message)))
-            (log-level-name-of message))
+    (unless (typep formatter 'raw-formatter)
+      (format stream "~A ~A ~7A "
+              (timestamp message)
+              (%logger-name-for-output
+               (or (name message)
+                   (logger message)))
+              (log-level-name-of message)))
     (when (format-control message)
       (if (format-args message)
           (restart-case
@@ -92,8 +105,8 @@
                   (when *debugger-hook* (invoke-debugger c))))
             (continue () ))
           (write-sequence (format-control message) stream)))
-    (format stream " ~{~A:~A~^, ~}~%"
-            (%filter-plist message)))
+    (format stream " ~{~A:~A~^, ~}" (%filter-plist message))
+    (terpri stream))
   
   (:method ((appender appender)
             (formatter json-formatter)

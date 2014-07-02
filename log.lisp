@@ -70,6 +70,12 @@
       ,@body)
     ,message-place))
 
+(defun add-signal-handler (logger condition-name fn)
+  (require-logger! logger)
+  (pushnew (list condition-name fn)
+           (default-signal-bindings logger)
+           :test #'equal))
+
 (defun logger-signal-handlers (logger condition)
   (loop for (typename fn) in (default-signal-bindings logger)
         when (typep condition typename)
@@ -109,6 +115,7 @@
    (appender :accessor appender :initarg :appender :initform nil)))
 
 (defun maybe-signal-appending-message (logger appender message)
+  
   (maybe-signal-message
    (make-condition
     'appending-message
@@ -404,9 +411,10 @@
   (:method :around (log appender message)
     (declare (ignore message))
     (let ((*appender* appender))
-      (with-debugging-or-error-printing
-          (log :continue "Try next appender")
-        (call-next-method))))
+      (with-simple-restart (abort "Abort appending this message")
+        (with-debugging-or-error-printing
+            (log :continue "Try next appender")
+          (call-next-method)))))
   (:method (log appender message)    
     (when (enabled-p message appender)
       (append-message
@@ -425,7 +433,8 @@
     (declare (ignore logger message))
     ;; turn off line wrapping for the entire time while inside the loggers
     (let ((*logger* logger))
-      (with-logging-io () (call-next-method))))
+      (with-simple-restart (abort "Abort logging this message")
+        (with-logging-io () (call-next-method)))))
   (:method ( log (message message))
     (require-logger! log)
     ;; this is probably a duplicate check, because our helper macros check

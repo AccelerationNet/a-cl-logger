@@ -29,6 +29,7 @@
 
            #:appender
            #:stream-log-appender
+           #:string-stream-appender
            #:stderr-log-appender
            #:file-log-appender
            #:ensure-stderr-appender
@@ -40,6 +41,7 @@
            #:make-log-path
 
            #:formatter
+           #:raw-formatter
            #:json-formatter
 
            #:node-logstash-appender
@@ -59,11 +61,13 @@
            #:require-logger!
 
            #:with-appender
+           #:with-logged-output-to-place
            #:log-around
            #:when-log-message-generated
            #:when-log-message-appended
            #:push-into-message
            #:default-signal-bindings
+           #:add-signal-handler
            #:generating-message
            #:appending-message
            #:logging-message

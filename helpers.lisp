@@ -94,8 +94,9 @@
    originating from it.
   "
   `(handler-bind
-    ((,signal (lambda (c) (with-debugging-or-error-printing (*logger*)
-                       ,@handler-body))))
+    ((,signal (lambda (c) (declare (ignorable c))
+                (with-debugging-or-error-printing (*logger*)
+                  ,@handler-body))))
     ,@body))
 
 (defmacro when-log-message-generated ((&body handler-body) &body body)
@@ -115,3 +116,10 @@
           ((when (eql ,log *logger*)
              (do-append ,log ,app *message*)))
         ,@body))))
+
+(defmacro with-logged-output-to-place ((logger place) &body body)
+  (alexandria:with-unique-names (appender)
+    `(let ((,appender (make-instance 'string-stream-appender)))
+      (with-appender (,logger ,appender)
+        (prog1 (progn ,@body)
+          (setf ,place (get-output-stream-string (log-stream ,appender))))))))

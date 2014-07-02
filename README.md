@@ -38,7 +38,7 @@ it receives to its appenders. An appenders's job is to take a message and
 write it somewhere. Loggers are organized in a hierarchy and messages
 sent to a logger will also be sent to that loggers's parents.
 
-Each logger has a level which is used to determine whether are particular
+Each logger has a level which is used to determine whether a particular
 message should be processed or not. Loggers inherit their log level from
 their parents. If a logger has multiple direct parents its log level is
 the min of the levels of its parents.
