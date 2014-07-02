@@ -96,9 +96,10 @@
   message)
 
 (defun maybe-signal-generating-message (message)
-  (maybe-signal-message
-   (make-condition 'generating-message :message message)
-   message))
+  (with-simple-restart (abort "Skip this message this message")
+    (maybe-signal-message
+     (make-condition 'generating-message :message message)
+     message)))
 
 (define-condition logging-message ()
   ((message :accessor message :initarg :message :initform nil)
@@ -409,14 +410,14 @@
 
 (defgeneric do-append (logger appender message)
   (:method :around (log appender message)
-    (declare (ignore message))
-    (let ((*appender* appender))
-      (with-simple-restart (abort "Abort appending this message")
-        (with-debugging-or-error-printing
-            (log :continue "Try next appender")
-          (call-next-method)))))
-  (:method (log appender message)    
-    (when (enabled-p message appender)
+    (when message
+      (let ((*appender* appender))
+        (with-simple-restart (abort "Abort appending this message")
+          (with-debugging-or-error-printing
+              (log :continue "Try next appender")
+            (call-next-method))))))
+  (:method (log appender message)
+    (when (and message (enabled-p message appender))
       (append-message
        appender
        ;; this will possibly change the message
@@ -429,12 +430,13 @@
    Message is either a string or a list. When it's a list and the first
     element is a string then it's processed as args to
     cl:format."  )
-  (:method :around ( logger message)
-    (declare (ignore logger message))
+  (:method :around ( logger message)    
     ;; turn off line wrapping for the entire time while inside the loggers
-    (let ((*logger* logger))
-      (with-simple-restart (abort "Abort logging this message")
-        (with-logging-io () (call-next-method)))))
+    (when message
+      (let ((*logger* logger))
+        (with-simple-restart (abort "Abort logging this message")
+          (with-logging-io () (call-next-method))))))
+  (:method ( log (message null)) nil)
   (:method ( log (message message))
     (require-logger! log)
     ;; this is probably a duplicate check, because our helper macros check

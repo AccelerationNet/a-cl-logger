@@ -60,3 +60,32 @@
     (push new (appenders logger))
     new))
 
+(defun only-logstash-appends (c)
+  (unless (typep (appender c) 'node-logstash-appender)
+    (abort c)))
+
+(defun no-logstash-appends (c)
+  (when (typep (appender c) 'node-logstash-appender)
+    (abort c)))
+
+(defmacro without-logstashing (() &body body)
+  `(handler-bind ((appending-message 'no-logstash-appends))
+    ,@body))
+
+(defmacro with-logstashing-only (() &body body)
+  `(handler-bind ((appending-message 'only-logstash-appends))
+    ,@body))
+
+(defmacro with-concatenated-logstash-logs ((&key (logger *root-logger*)
+                                            (level '+info+))
+                                           &body body)
+  (alexandria:with-unique-names (lg logs rtn)
+    `(let ( (,lg ,logger) ,logs  ,rtn )
+      (without-logstashing ()
+        (with-logged-output-to-place (,lg ,logs)
+          (setf ,rtn (multiple-value-list
+                      (progn ,@body)))))
+      (with-logstashing-only ()
+        (do-log ,lg ,level ,logs))
+      (apply #'values ,rtn))))
+

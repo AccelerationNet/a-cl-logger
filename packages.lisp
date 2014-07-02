@@ -46,6 +46,9 @@
 
            #:node-logstash-appender
            #:ensure-node-logstash-appender
+           #:without-logstashing
+           #:with-logstashing-only
+           #:with-concatenated-logstash-logs
 
            #:message
            #:format-args
