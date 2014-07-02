@@ -51,7 +51,7 @@
                    (setf ,open ,message)
                    ))))
           ,logger-form)
-        (prog1 (progn ,@body)
+        (multiple-value-prog1 (progn ,@body)
           (handler-bind
               ((generating-message
                  (lambda (c) (close-message-block ,open (message c)))))
@@ -121,5 +121,5 @@
   (alexandria:with-unique-names (appender)
     `(let ((,appender (make-instance 'string-stream-appender)))
       (with-appender (,logger ,appender)
-        (prog1 (progn ,@body)
+        (multiple-value-prog1 (progn ,@body)
           (setf ,place (get-output-stream-string (log-stream ,appender))))))))
