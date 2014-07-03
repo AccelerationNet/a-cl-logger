@@ -439,17 +439,18 @@
   (:method ( log (message null)) nil)
   (:method ( log (message message))
     (require-logger! log)
-    ;; this is probably a duplicate check, because our helper macros check
-    ;; before evaluating the message args, but good to be sure, so that
-    ;; extensions and calls to do-logging behave as expected
-    (unless (enabled-p message log) (return-from do-logging))
-    ;; if we have any appenders send them the message
-    (setf message (maybe-signal-logging-message log message))
-    (dolist (appender (appenders log))
-      (do-append log appender message))
+    
+
+    (when (enabled-p message log)
+      ;; if we have any appenders send them the message
+      (setf message (maybe-signal-logging-message log message))
+      (when message
+        (dolist (appender (appenders log))
+          (do-append log appender message))))
+    
     (dolist (parent (parents log))
       (with-debugging-or-error-printing
-          (log :continue "Try next appender")
+          (log :continue "Try next parent")
         (do-logging parent message)))
     (values message log)))
 
