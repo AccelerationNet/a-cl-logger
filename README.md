@@ -117,12 +117,9 @@ default.  This is a conveneint place to put appenders that should
 always apply.  You can remove the root by removing it from the parents
 slot of a logger.
 
-### Changing / Adding to the messages being logged
+### Signals and Restarts
 
 Messages generate signals on being created and on being appended.
-At each of these points you can invoke the restart `change-message`
-to alter the message going out.  Generally the message you change 
-to will be a copy of the original (see copy-message).
 
  * generating-message - signaled when a message is created
  * logging-message - signaled when a specific logger begins handling a
@@ -130,10 +127,60 @@ to will be a copy of the original (see copy-message).
  * appending-message - signaled when a specific appender begins
    handling a message
 
+
+#### Muffling log messages / aborting
+
+Each signal can be aborted which will prevent the operation from
+occuring.
+
+Aborting while appending will prevent the message from going to a
+single destination.  Aborting while logging will prevent the message
+from going to ANY appenders of the log or its parents.  Aborting while
+generating a message just muffles that log message entirely
+
+#### Changing / Adding to the messages being logged
+
+At each of these points you can invoke the restart `change-message` to
+alter the message going out.  Generally the message you change to will
+be a copy of the original (see copy-message).
+
 Each of these signals are wrapped in a `change-message` restart that
 can be used to modify the message for the remainder of the operation.
 (IE: a specific appender will operate on a new copy of the message
 with different, supplemental data).
+
+#### Default Handlers
+
+Signals can be handled by handler-binds on the dynamic context or by
+adding default-handlers to the `default-signal-bindings` slot on the
+logger.  This can be accomplished using `add-signal-handler` passing 
+the logger, a condition type and a fn.
+
+Here are some examples. The first prevents the timing log from being inserted
+into the log file.  The second prevents a particular log message from 
+being inserted into the logs.
+
+```
+(defun mute-timing-file-appends (c)
+    (let* ((m (a-log:message c))
+           (l (a-log:logger m))
+           (a (a-log:appender c)))
+      (when (and (typep a 'a-log:file-log-appender)
+                 (eql l *timing-log*))
+        (abort c))))
+
+(a-log:add-signal-handler
+ *timing-log* 'a-log:appending-message 'mute-timing-file-appends)
+
+(defun ignore-foreach-warnings (c)
+  (let ((fs (a-log:format-control (a-log:message c))))
+    (when (cl-ppcre:scan #?r"(?i)invalid argument supplied for foreach" fs)
+      (abort c))))
+
+(a-log:add-signal-handler
+ *wp-log* 'a-log:generating-message 'ignore-foreach-warnings)
+
+```
 
 ### Helper Functions
 
