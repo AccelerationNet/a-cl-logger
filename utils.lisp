@@ -190,7 +190,7 @@ done."
    (typecase k
      ((or symbol string) k)
      (t (princ-to-string k)))
-   (princ-to-string v)))
+   v))
 
 (defun only-one? (thing)
   (typecase thing
