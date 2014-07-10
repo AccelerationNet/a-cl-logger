@@ -18,7 +18,7 @@
            (progn 
              (setf connected (zerop (zmq:connect socket server)))
              (zmq:with-msg-init-data (msg json) 
-               (zmq:msg-send msg socket)))
+               (zmq:msg-send msg socket (list :dontwait))))
         (when connected
           ;; Disconnecting causes all messages to not flow, for some reason
           ;; I believe we will blcok on with-socket to close until all messages
