@@ -185,12 +185,24 @@ done."
          (:time (format stream "~2,'0D:~2,'0D:~2,'0D"
                         hour minute second)))))))
 
-(defun as-json-o-val (k v)
-  (json:encode-object-member
-   (typecase k
-     ((or symbol string) k)
-     (t (princ-to-string k)))
-   v))
+;; TODO: these really seem like they should recurse
+(defun as-json-array (list)
+  (json:with-array ()
+    (iter (for v in list)
+      (json:as-array-member ()
+        (typecase v
+          (json (write-sequence (json v) json:*json-output*))
+          (t (json:encode-json v)))))))
+
+(defun as-json-object-member (k v)
+  (setf k (typecase k
+            ((or symbol string) k)
+            (t (princ-to-string k))))
+  (json:as-object-member (k)
+    (typecase v
+      (list (as-json-array v))
+      (json (write-sequence (json v) json:*json-output*))
+      (t (json:encode-json v)))))
 
 (defun only-one? (thing)
   (typecase thing

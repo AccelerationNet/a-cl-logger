@@ -43,6 +43,9 @@
            #:formatter
            #:raw-formatter
            #:json-formatter
+           #:json
+           #:alist-as-json
+           #:plist-as-json
 
            #:node-logstash-appender
            #:ensure-node-logstash-appender

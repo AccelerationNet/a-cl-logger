@@ -11,9 +11,23 @@
   ()
   (:documentation "format the message with no annotations"))
 
+(defclass json ()
+  ((json :accessor json :initarg :json :initform nil))
+  (:documentation "A type to know when something is already encoded, so that
+  we just write it out.  It is sometimes beneficial to pre-encode some bits of
+  log data and this allows that"))
+
+(defun alist-as-json (alist)
+  "Create a pre-encoded json object from an alist"
+  (make-instance 'json :json (json:encode-json-alist-to-string alist)))
+
+(defun plist-as-json (&rest plist)
+  "Create a pre-encoded json object from a plist"
+  (make-instance 'json :json (json:encode-json-plist-to-string plist)))
+
 (defclass json-formatter (formatter)
   ()
-  (:documentation "The base class of all message formatters"))
+  (:documentation "The base class of all json formatters"))
 
 (defclass appender ()
   ((formatter :accessor formatter
@@ -141,10 +155,13 @@
                  (format-control message))))
           (when (arg-literals message)
             (json:encode-object-member
-             :arg-literals (arg-literals message)))
+             ;; lets not encode arg-literals as json because then they wont be
+             ;; literal again
+             :arg-literals (prin1-to-string (arg-literals message))))
+          
           (iter (for (k v) on (%filter-plist message seen)
                      by #'cddr)
-            (as-json-o-val k v)))))))
+            (as-json-object-member k v)))))))
 
 (defmacro with-stream-restarts ((s recall) &body body)
   `(restart-case
