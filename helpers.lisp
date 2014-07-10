@@ -113,8 +113,8 @@
   (alexandria:with-unique-names (log app)
     `(let ((,log ,logger) (,app ,appender))
       (when-log-message-logged
-          ((when (eql ,log *logger*)
-             (do-append ,log ,app *message*)))
+          ((when (eql *logger* ,log)
+             (do-append *logger* ,app *message*)))
         ,@body))))
 
 (defmacro with-logged-output-to-place ((logger place) &body body)

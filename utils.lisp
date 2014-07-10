@@ -196,12 +196,20 @@ done."
           (json (write-sequence (json v) json:*json-output*))
           (t (json:encode-json v)))))))
 
+(defun me-or-ancestor (logger to-match)
+  (or (eql logger to-match)
+      (some #'(lambda (it) (me-or-ancestor it to-match))
+            (parents logger))))
+
 (defun as-json-object-member (k v)
   (setf k (typecase k
             ((or symbol string) k)
             (t (princ-to-string k))))
   (json:as-object-member (k)
     (typecase v
+      ;; nil is a symbol we dont want to print
+      (null (json:encode-json v))
+      (symbol (json:encode-json (prin1-to-string v)))
       (list (as-json-array v))
       (json (write-sequence (json v) json:*json-output*))
       (t (json:encode-json v)))))
