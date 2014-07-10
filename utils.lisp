@@ -15,6 +15,7 @@
   (defparameter +warn+    3)
   (defparameter +error+   4)
   (defparameter +fatal+   5)
+  (defparameter +muted+   6)
   (defparameter *max-logger-name-length* 12)
 
   (defparameter *log-level-names*
@@ -23,7 +24,8 @@
       (info +info+ 2)
       (warn +warn+ 3)
       (error +error+ 4)
-      (fatal +fatal+ 5))))
+      (fatal +fatal+ 5)
+      (muted +muted+ 6))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
