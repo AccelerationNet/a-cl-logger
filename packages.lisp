@@ -66,6 +66,8 @@
            #:require-logger
            #:require-logger!
 
+           #:log-errors
+           #:log-serious-conditions
            #:with-appender
            #:with-logged-output-to-place
            #:log-around
@@ -77,5 +79,6 @@
            #:generating-message
            #:appending-message
            #:logging-message
+           
            ))
 

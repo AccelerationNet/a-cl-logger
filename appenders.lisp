@@ -94,6 +94,23 @@
     (collect k into seen)
     (finally (return rtn))))
 
+
+(defgeneric format-value (v formatter)
+  (:method (v formatter)
+    (typecase v
+      (symbol (prin1-to-string v))
+      (list (mapcar (lambda (it) (format-value it formatter))  v))
+      (json (json v))
+      (t v)))
+  (:method (v (f json-formatter))
+    (typecase v
+      ;; nil is a symbol we dont want to print
+      (null (json:encode-json v))
+      (symbol (json:encode-json (prin1-to-string v)))
+      (list (as-json-array v))
+      (json (write-sequence (json v) json:*json-output*))
+      (t (json:encode-json v)))))
+
 (defgeneric format-message
     (appender formatter message stream)
   (:method ((appender appender) formatter (message message) stream)
@@ -119,7 +136,10 @@
                   (when *debugger-hook* (invoke-debugger c))))
             (continue () ))
           (write-sequence (format-control message) stream)))
-    (format stream " ~{~A:~A~^, ~}" (%filter-plist message))
+    (format stream " ~{~A:~A~^, ~}"
+            (iter (for (k v) on (%filter-plist message) by #'cddr)
+              (collect k)
+              (collect (format-value v formatter))))
     (terpri stream))
   
   (:method ((appender appender)
@@ -161,7 +181,7 @@
           
           (iter (for (k v) on (%filter-plist message seen)
                      by #'cddr)
-            (as-json-object-member k v)))))))
+            (as-json-object-member k v formatter)))))))
 
 (defmacro with-stream-restarts ((s recall) &body body)
   `(restart-case

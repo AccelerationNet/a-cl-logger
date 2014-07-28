@@ -123,3 +123,17 @@
       (with-appender (,logger ,appender)
         (multiple-value-prog1 (progn ,@body)
           (setf ,place (get-output-stream-string (log-stream ,appender))))))))
+
+(defmacro log-errors ((logger &optional message) &body body)
+  "like ignore-errors but logs instead"
+  `(handler-case (progn ,@body)
+    (error (c)
+     (do-log ,logger +error+ :message ,message :error c)
+     (values nil c))))
+
+(defmacro log-serious-conditions ((logger &optional message) &body body)
+  "like ignore-errors but logs instead"
+  `(handler-case (progn ,@body)
+    (serious-condition (c)
+     (do-log ,logger +error+ :message ,message :error c)
+     (values nil c))))
