@@ -187,6 +187,9 @@ done."
          (:time (format stream "~2,'0D:~2,'0D:~2,'0D"
                         hour minute second)))))))
 
+;; def-forward-reference class
+(unless (find-class 'json nil) (defclass json ()))
+
 ;; TODO: these really seem like they should recurse
 (defun as-json-array (list)
   (json:with-array ()
@@ -201,18 +204,12 @@ done."
       (some #'(lambda (it) (me-or-ancestor it to-match))
             (parents logger))))
 
-(defun as-json-object-member (k v)
+(defun as-json-object-member (k v formatter)
   (setf k (typecase k
             ((or symbol string) k)
             (t (princ-to-string k))))
   (json:as-object-member (k)
-    (typecase v
-      ;; nil is a symbol we dont want to print
-      (null (json:encode-json v))
-      (symbol (json:encode-json (prin1-to-string v)))
-      (list (as-json-array v))
-      (json (write-sequence (json v) json:*json-output*))
-      (t (json:encode-json v)))))
+    (format-value v formatter)))
 
 (defun only-one? (thing)
   (typecase thing
