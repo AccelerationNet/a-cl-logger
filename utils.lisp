@@ -188,7 +188,7 @@ done."
                         hour minute second)))))))
 
 ;; def-forward-reference class
-(unless (find-class 'json nil) (defclass json ()))
+(unless (find-class 'json nil) (defclass json () ()))
 
 ;; TODO: these really seem like they should recurse
 (defun as-json-array (list)
