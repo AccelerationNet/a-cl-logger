@@ -135,9 +135,11 @@ done."
                         (ignore-errors
                          (eql :dedicated (swank::slime-stream-p ,os-name))))
                    #-swank nil
+                   #+swank
                    (let ((swank::*dedicated-presentation-streams*
                            (cons ,var swank::*dedicated-presentation-streams*)))
                      ,@body)
+                   #-swank (progn ,@body)
                    (progn ,@body)))))
       ;; we want the following two lines to be close (more likely run
       ;; together without actually locking) so do the computation
