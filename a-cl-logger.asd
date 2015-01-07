@@ -27,3 +27,8 @@
   :components
   ((:file "tests"))
   :depends-on (:lisp-unit2 :a-cl-logger))
+
+(defmethod asdf:perform ((o asdf:test-op) (c (eql (asdf:find-system :a-cl-logger))))
+  (asdf:load-system :a-cl-logger-tests)
+  (let ((*package* (find-package :a-cl-logger)))
+    (eval (read-from-string "(run-tests)"))))
