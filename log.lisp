@@ -439,19 +439,18 @@
   (:method ( log (message null)) nil)
   (:method ( log (message message))
     (require-logger! log)
-    
-
     (when (enabled-p message log)
       ;; if we have any appenders send them the message
       (setf message (maybe-signal-logging-message log message))
       (when message
         (dolist (appender (appenders log))
-          (do-append log appender message))))
-    
-    (dolist (parent (parents log))
-      (with-debugging-or-error-printing
-          (log :continue "Try next parent")
-        (do-logging parent message)))
+          (do-append log appender message)))
+      
+      ;; Only enabled messages for this log get propogated to parents
+      (dolist (parent (parents log))
+        (with-debugging-or-error-printing
+            (log :continue "Try next parent")
+          (do-logging parent message))))
     (values message log)))
 
 (defun logger-name-from-helper (name)
