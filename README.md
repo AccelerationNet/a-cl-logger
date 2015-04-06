@@ -21,10 +21,20 @@ chunks of surrounding code.
 ### Quickstart
 
 ```
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload :a-cl-logger))
+
+;; log to stderr
 (a-cl-logger:define-logger testlog ())
 (defun do-something(x)
   (testlog.debug "starting to do something to ~a" x)
   (testlog.info "did something to ~a" x))
+
+;; log to stderr and a file (see note about buffering in "Gotchas" below)
+(a-cl-logger:define-logger filelog ()
+  :appenders (make-instance 'a-cl-logger:file-log-appender :log-file "test.log"))
+
 ```
 
 ### Description and Glossary 
@@ -207,8 +217,16 @@ being inserted into the logs.
  * There are some SBCL specifics.  Cross platform help would be nice
   * "--quiet" command line arg
   * logstash hostname 
+ * file log appender output may be buffered by the lisp
+   implementation's stream operations. If you have a slow process,
+   messages may take some time to be written to the log file. Use
+   `(make-instance 'a-cl-logger:file-log-appender :log-file "test.log"
+   :buffer-p nil)` to aggressively call
+   [force-output](http://l1sp.org/cl/force-output) and ensure the log
+   file is accurate.
 
 ### Differences From Arnesi/src/log.lisp
+
  * There has been some significant renaming
   * deflogger -> define-logger
   * log-category -> logger
