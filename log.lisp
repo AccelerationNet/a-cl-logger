@@ -232,7 +232,7 @@
 
   ;; this should mostly apply to the *root-logger* now
   (unless (or (appenders log) (parents log))
-    (ensure-debug-io-appender log)))
+    (ensure-stderr-appender log)))
 
 (defun make-message (logger level args
                      &key arg-literals data-plist
