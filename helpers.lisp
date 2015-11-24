@@ -5,6 +5,7 @@
 ;; the force/unless is needed because we needed to reference the var before define-logger :/
 (unless *root-logger*
   (define-logger root-logger ()
+    :level +info+
     :force? t))
 
 (defun get-log-fn (logger &key (level +debug+))

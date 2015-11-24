@@ -220,7 +220,11 @@
   ;; TODO: Do we want this error here, or should we allow names such that defining is easier
   (setf (parents log) (mapcar #'require-logger (ensure-list (parents log))))
 
+  ;; we have an initform, but i was getting errors related to this being unbound?
+  (unless (slot-boundp log 'appenders)
+    (setf (appenders log) nil))
   (ensure-list! (appenders log))
+  
   ;; everybody with no parents who are not the root loger is automatically a
   ;; child of the root logger
   (unless (or (eql 'root-logger (name log))

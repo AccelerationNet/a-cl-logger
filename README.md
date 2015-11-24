@@ -43,10 +43,12 @@ A Logger is a mechanism for generating a text message and have that
 messaged saved somewhere for future review. Logging can be used as a
 debugging mechanism or for just reporting on the status of a system.
 
-Messages are sent to a particular Logger. Each logger sends the messages
-it receives to its appenders. An appenders's job is to take a message and
-write it somewhere. Loggers are organized in a hierarchy and messages
-sent to a logger will also be sent to that loggers's parents.
+Messages are sent to a particular Logger. Each logger sends the
+messages it receives to its appenders. An appenders's job is to take a
+message and write it somewhere. Loggers are organized in a hierarchy
+and messages sent to a logger will also be sent to that loggers's
+parents (if valid). Only if the message is enabled for the current
+logger will it be propogated to the parents.
 
 Each logger has a level which is used to determine whether a particular
 message should be processed or not. Loggers inherit their log level from
