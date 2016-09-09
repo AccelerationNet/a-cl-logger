@@ -129,7 +129,7 @@ default.  This is a conveneint place to put appenders that should
 always apply.  You can remove the root by removing it from the parents
 slot of a logger.
 
-### Signals and Restarts
+### Signals and Restarts - Context Sensitive Logging
 
 Messages generate signals on being created and on being appended.
 
@@ -236,4 +236,86 @@ being inserted into the logs.
  * File streams ensure the file is open to write to
  * Failing to write to one appender / logger doesnt prevent the rest
    from working
+
+## Examples:
+!! These examples are all in SBCL !!
+
+### Filtering message content
+
+This will abort / mute log messages that match a certain warning
+```
+(defun ignore-foreach-warnings (c)
+  (let ((fs (a-log:format-control (a-log:message c))))
+    (when (cl-ppcre:scan #?r"(?i)invalid argument supplied for foreach" fs)
+      (abort c))))
+
+(define-logger my-module-log (my-log))
+
+```
+
+#### Filter log messages globally for a specific logger:
+
+```
+(a-log:add-signal-handler
+ *my-module-log* 'a-log:generating-message 'ignore-foreach-warnings)
+```
+
+#### Filter log messages locally for a logger:
+
+```
+(defmacro with-muted-foreach-warnings (() &body body)
+  (handler-bind ((a-log:generating-message #'ignore-foreach-warnings))
+    (progn ,@body)))
+```
+
+### Basic Context Sensitive Logging
+
+(a-log:when-log-message-generated
+    ((a-log:push-into-message :a 1 :b 2))
+  (log.debug "This message will have a=1 and b=2 in its data"))
+
+
+### Logging the lexical environment
+
+```
+
+(a-log:define-logger my-log ()
+  :appenders (make-instance 'a-log:stream-log-appender :stream *standard-output*))
+
+(defun compile-env-data-list (env)
+  (let* ((blocks (mapcar #'first (reverse (sb-c::lexenv-blocks env))))
+         (lex-vars (reverse (sb-c::lexenv-vars env)))
+         (vars (iter (for (name . v) in lex-vars)
+                 (for ignore? = (ignore-errors (sb-c::lambda-var-ignorep v)))
+                 (unless ignore?
+                   (collect `(quote ,name))
+                   (collect name)))))
+    (values
+     (first blocks)
+     `(list :blocks (princ-to-string '(,@blocks))
+       (list ,@vars)))))
+
+(defmacro with-env-stats-recorder (()
+                                   &body body &environment env)
+  "Signals the realtime of the body, pulling data and tag from the lexical env"
+  ;; NB: To debug this you will need to break in here and inspect body
+  ;; macroexpand doesnt work
+  (multiple-value-bind (name data-forms)
+      (compile-env-data-list env)
+    `(a-log:when-log-message-generated
+      ((a-log:push-into-message :lexical-data (,@data-forms) :name ',name))
+      ,@body)))
+
+(defun test-cs-logging (&key (a 1) (b 2))
+  (my-log.info "OUT of Env Recorder ")
+  (with-env-stats-recorder ()
+    (my-log.info "In test-cs-logger recorder ")
+    (let ((c (+ 1 b)))
+      (flet ((again (d)
+               (incf d)
+               (with-env-stats-recorder ()
+                 (my-log.info "In again ~a " d))))
+        (again a)
+        (again b)))))
+```
 
