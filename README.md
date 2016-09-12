@@ -33,7 +33,14 @@ chunks of surrounding code.
 
 ;; log to stderr and a file (see note about buffering in "Gotchas" below)
 (a-cl-logger:define-logger filelog ()
-  :appenders (make-instance 'a-cl-logger:file-log-appender :log-file "test.log"))
+  :appenders (make-instance 'a-cl-logger:file-log-appender
+                :log-file "test.log"))
+
+;; log to stderr and a file (see note about buffering in "Gotchas" below)
+(a-cl-logger:define-logger filelog ()
+  :appenders (make-instance 'a-cl-logger:json-file-log-appender
+                :log-file "test.json.log"))
+
 
 ```
 
@@ -129,6 +136,29 @@ default.  This is a conveneint place to put appenders that should
 always apply.  You can remove the root by removing it from the parents
 slot of a logger.
 
+### Appenders and Formatters
+
+ * An appender controls writing a log message to a specific destination
+ * Each appender has a formatter that controls the way the log message
+   is printed.
+
+### Filtering
+
+This will mute timing messages to any file appenders
+(eg: send timing only to the repl / logstash)
+```
+(define-logger app-log ())
+(define-logger timing-log (app-log))
+(defun mute-timing-file-appends (c)
+    (let* ((m (a-log:message c))
+           (l (a-log:logger m))
+           (a (a-log:appender c)))
+      (when (and (typep a 'a-log:file-log-appender)
+                 (eql l *timing-log*))
+        (abort c))))
+(a-log:add-signal-handler
+ *timing-log* 'a-log:appending-message 'mute-timing-file-appends)
+```
 ### Signals and Restarts - Context Sensitive Logging
 
 Messages generate signals on being created and on being appended.
@@ -243,6 +273,7 @@ being inserted into the logs.
 ### Filtering message content
 
 This will abort / mute log messages that match a certain warning
+
 ```
 (defun ignore-foreach-warnings (c)
   (let ((fs (a-log:format-control (a-log:message c))))
@@ -297,9 +328,7 @@ This will abort / mute log messages that match a certain warning
 
 (defmacro with-env-stats-recorder (()
                                    &body body &environment env)
-  "Signals the realtime of the body, pulling data and tag from the lexical env"
-  ;; NB: To debug this you will need to break in here and inspect body
-  ;; macroexpand doesnt work
+  "puts data and tag from the lexical env into the message"
   (multiple-value-bind (name data-forms)
       (compile-env-data-list env)
     `(a-log:when-log-message-generated
