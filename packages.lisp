@@ -28,6 +28,7 @@
            #:children
 
            #:appender
+           #:log-stream
            #:stream-log-appender
            #:string-stream-appender
            #:stderr-log-appender
