@@ -71,6 +71,7 @@
            #:log-serious-conditions
            #:with-appender
            #:with-logged-output-to-place
+           #:with-logged-output
            #:log-around
            #:when-log-message-generated
            #:when-log-message-appended

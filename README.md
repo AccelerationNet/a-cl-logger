@@ -270,6 +270,18 @@ being inserted into the logs.
 ## Examples:
 !! These examples are all in SBCL !!
 
+### Capturing log output to strings
+
+```
+(a-log:with-logged-output (a-log:*root-logger*)
+  (run-some-data *context*)
+  )
+=>
+"Log message 1
+Log message 2
+Log message 3"
+```
+
 ### Filtering message content
 
 This will abort / mute log messages that match a certain warning

@@ -125,6 +125,13 @@
         (multiple-value-prog1 (progn ,@body)
           (setf ,place (get-output-stream-string (log-stream ,appender))))))))
 
+(defmacro with-logged-output ((logger) &body body)
+  (alexandria:with-unique-names (out)
+    `(let ((,out))
+      (with-logged-output-to-place (,logger ,out)
+        ,@body)
+      ,out)))
+
 (defmacro log-errors ((logger &optional message) &body body)
   "like ignore-errors but logs instead"
   `(handler-case (progn ,@body)
