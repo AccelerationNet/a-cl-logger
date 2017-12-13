@@ -8,6 +8,7 @@
 (defsystem :a-cl-logger
   :description "A logger that sends to multiple destinations in multiple formats. Based on arnesi logger"
   :author "Russ Tyndall <russ@acceleration.net>, Nathan Bird <nathan@acceleration.net>, Ryan Davis <ryan@acceleration.net>"
+  :version "1.0.1"
   :licence "BSD"
   :serial t
   :components

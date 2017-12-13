@@ -145,3 +145,13 @@
     (serious-condition (c)
      (do-log ,logger +error+ :message ,message :error c)
      (values nil c))))
+
+
+(defun close-all-files (&key (loggers *logger-vars*))
+  (iter (for ln in loggers)
+    (for log = (get-logger ln))
+    (when log
+      (iter (for a in (appenders log))
+        (when (and (typep a 'file-log-appender)
+                  (log-stream a))
+          (close (log-stream a)))))))

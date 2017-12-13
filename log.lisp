@@ -34,6 +34,8 @@
      (ensure-type
       (or (handler-case (symbol-value (get-logger-var-name name))
             (unbound-variable (c) (declare (ignore c))))
+          (handler-case (symbol-value name)
+            (unbound-variable (c) (declare (ignore c))))
           (destructuring-bind (name &optional level)
               (split-log-helper name)
             (when level (get-logger name))))

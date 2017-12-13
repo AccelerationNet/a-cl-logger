@@ -81,6 +81,6 @@
            #:generating-message
            #:appending-message
            #:logging-message
-           
+           #:close-all-files           
            ))
 
