@@ -8,18 +8,21 @@
     :level +info+
     :force? t))
 
-(defun get-log-fn (logger &key (level +debug+))
+(defun get-log-fn (log-id &key (level +debug+))
   "Given a logger identifier name like 'adwolf-log.debug or 'adwolf-log find the logger
    associated with it and build a (lambda (message &rest args)) that can be
    funcalled to log to that logger.
    "
-  (get-logger! logger)
-  (etypecase logger
-    (null nil)
-    (logger
-     (lambda (&rest args)
-       (apply #'do-log logger level args)))
-    (function logger)))
+  (if (functionp log-id)
+      log-id
+      (let ((logger (get-logger log-id))
+            (level-name (logger-level-from-helper log-id)))
+      (etypecase logger
+        (null nil)
+        (logger
+         (lambda (&rest args)
+           (apply #'do-log logger (or level-name level) args)))
+        (function logger)))))
 
 (defun open-message-block (message)
   (when (format-control message)
