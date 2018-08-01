@@ -232,10 +232,18 @@
 
   ;; if we are no longer pointing to the correct file
   ;; EG: the file has been rotated
-  (unless (probe-file (log-file appender))
+  (unless (and (probe-file (log-file appender))
+               (and (log-stream appender)
+                    (log-file appender)
+                    (equal (osicat-posix:stat-ino
+                            (osicat-posix:fstat (log-stream appender)))
+                           (osicat-posix:stat-ino
+                            (osicat-posix:stat (log-file  appender)))
+                           )))
     (when (log-stream appender)
       (close (log-stream appender)))
     (%open-log-file appender))
+  
 
   (restart-case (handler-case
                     (progn (call-next-method)
