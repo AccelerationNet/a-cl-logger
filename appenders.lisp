@@ -216,7 +216,10 @@
           (let ((f (open (log-file ufla) :if-exists :append :if-does-not-exist :create
                          :direction :output
                          :external-format :utf-8)))
-            (push (lambda () (force-output f) (close f)) sb-ext::*exit-hooks*)
+            (push (lambda ()
+                    (ignore-errors (force-output f))
+                    (ignore-errors (close f)))
+                  sb-ext::*exit-hooks*)
             f))))
 
 (defmethod (setf log-file) :after (val (ufla file-log-appender))
@@ -225,6 +228,12 @@
 (defmethod append-message ((appender file-log-appender) message)
   (unless (and (slot-boundp appender 'stream)
                (log-stream appender))
+    (%open-log-file appender))
+
+  ;; if we are no longer pointing to the correct file
+  ;; EG: the file has been rotated
+  (unless (cl-fad:file-exists-p (log-file appender))
+    (close (log-stream appender))
     (%open-log-file appender))
 
   (restart-case (handler-case
