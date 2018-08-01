@@ -232,7 +232,7 @@
 
   ;; if we are no longer pointing to the correct file
   ;; EG: the file has been rotated
-  (unless (cl-fad:file-exists-p (log-file appender))
+  (unless (probe-file (log-file appender))
     (close (log-stream appender))
     (%open-log-file appender))
 
