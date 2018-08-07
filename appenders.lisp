@@ -233,7 +233,8 @@
   ;; if we are no longer pointing to the correct file
   ;; EG: the file has been rotated
   (unless (probe-file (log-file appender))
-    (close (log-stream appender))
+    (when (log-stream appender)
+      (close (log-stream appender)))
     (%open-log-file appender))
 
   (restart-case (handler-case
