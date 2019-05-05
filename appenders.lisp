@@ -161,7 +161,7 @@
           (js-val
            :tags (list* (name log) (mapcar #'name (parents log))))
           (js-val :level (log-level-name-of message))
-          (js-val :hostname #+sbcl (sb-unix:unix-gethostname))
+          (js-val :hostname (machine-instance))
           ;; NB: this naming is for the sake of logstash, if we need to we can
           ;; abstract it better
           (js-val :@timestamp (princ-to-string (timestamp message)))
