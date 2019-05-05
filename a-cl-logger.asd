@@ -18,7 +18,7 @@
    (:file "appenders")
    (:file "helpers"))
   :depends-on (:iterate :symbol-munger :alexandria :cl-interpol :cl-json :local-time
-                :cl-json :closer-mop :osicat))
+                :cl-json :closer-mop :osicat :exit-hooks))
 
 (defsystem :a-cl-logger-tests
   :description "Tests for: a-cl-logger"
