@@ -4,6 +4,7 @@
   (:use :cl :iterate)
   (:nicknames :a-log)
   (:import-from #:alexandria #:ensure-list )
+  (:import-from #:exit-hooks #:add-exit-hook)
   (:shadow #:formatter)
   (:export #:+dribble+ #:+debug+ #:+info+ #:+warn+ #:+error+ #:+fatal+
            #:*log-level-names* #:log-level-name-of

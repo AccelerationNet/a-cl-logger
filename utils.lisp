@@ -80,7 +80,7 @@
     `(replace-symbols-in-forms
       (list ,@(iter (for n in names)
                 (typecase n
-                  (null)
+                  (null nil)
                   (atom (appending `(',n ,n)))
                   (list (appending `(',(first n) ,(second n)))))
                 ))
