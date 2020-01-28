@@ -219,7 +219,7 @@
             (push (lambda ()
                     (ignore-errors (force-output f))
                     (ignore-errors (close f)))
-                  sb-ext::*exit-hooks*)
+                  sb-ext:*exit-hooks*)
             f))))
 
 (defmethod (setf log-file) :after (val (ufla file-log-appender))
