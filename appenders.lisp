@@ -161,7 +161,7 @@
           (js-val
            :tags (list* (name log) (mapcar #'name (parents log))))
           (js-val :level (log-level-name-of message))
-          (js-val :hostname #+sbcl (sb-unix:unix-gethostname))
+          (js-val :hostname (machine-instance))
           ;; NB: this naming is for the sake of logstash, if we need to we can
           ;; abstract it better
           (js-val :@timestamp (princ-to-string (timestamp message)))
@@ -213,14 +213,14 @@
 (defun %open-log-file (ufla)
   (setf (log-stream ufla)
         (ignore-errors
-          (let ((f (open (log-file ufla) :if-exists :append :if-does-not-exist :create
-                         :direction :output
-                         :external-format :utf-8)))
-            (push (lambda ()
-                    (ignore-errors (force-output f))
-                    (ignore-errors (close f)))
-                  sb-ext:*exit-hooks*)
-            f))))
+         (let ((f (open (log-file ufla)
+                        :if-exists :append :if-does-not-exist :create
+                        :direction :output
+                        :external-format :utf-8)))
+           (add-exit-hook (lambda ()
+                            (ignore-errors (force-output f))
+                            (ignore-errors (close f))))
+           f))))
 
 (defmethod (setf log-file) :after (val (ufla file-log-appender))
   (%open-log-file ufla))
