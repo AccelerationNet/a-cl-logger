@@ -329,7 +329,7 @@ This will abort / mute log messages that match a certain warning
   (let* ((blocks (mapcar #'first (reverse (sb-c::lexenv-blocks env))))
          (lex-vars (reverse (sb-c::lexenv-vars env)))
          (vars (iter (for (name . v) in lex-vars)
-                 (for ignore? = (ignore-errors (sb-c::lambda-var-ignorep v)))
+                 (for ignore? = (ignore-errors (sb-c:lambda-var-ignorep v)))
                  (unless ignore?
                    (collect `(quote ,name))
                    (collect name)))))
